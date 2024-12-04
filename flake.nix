@@ -14,7 +14,17 @@
           pkgs.rustup
           pkgs.cargo
           pkgs.cargo-watch
+          pkgs.sqlite
         ];
+
+        env = {
+          DIRENV_LOG_FORMAT="";
+        };
+
+        shellHook = ''
+          printf "\nEnvironment is set up! ٩(◕‿◕｡)۶\n\n"
+        '';
       };
-    });
+    }
+    );
 }
