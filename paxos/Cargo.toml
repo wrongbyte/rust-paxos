@@ -1,0 +1,11 @@
+[package]
+name = "paxos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bty = "0.2.0"
+chrono = { version = "0.4.38", features = ["serde"] }
+serde = { version = "1.0.215", features = ["derive"] }
+uuid = { version = "1.11.0", features = ["serde"] }
+tokio = "1.42.0"
