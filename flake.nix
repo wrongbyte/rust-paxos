@@ -1,4 +1,6 @@
 {
+  description = "Environment necessary to run the Paxos implementation.";
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
