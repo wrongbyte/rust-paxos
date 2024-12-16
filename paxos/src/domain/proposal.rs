@@ -1,6 +1,7 @@
 use super::id::{NodeId, ProposalId};
 
-/// A proposal is a message sent by a **proposer** to the **acceptors**, containing the id of the proposal and a value.
+/// A proposal is a message sent by a **proposer** to the **acceptors**,
+/// containing the id of the proposal and a value.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Proposal {
     #[serde(flatten)]

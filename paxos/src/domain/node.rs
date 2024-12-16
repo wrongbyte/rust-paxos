@@ -1,9 +1,11 @@
 use std::io::Error;
+
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use super::{id::NodeId, message::Message};
 
-/// A node contains its unique ID as well as the sender and receiver interfaces to communicate with other nodes using messages.
+/// A node contains its unique ID as well as the sender and receiver interfaces
+/// to communicate with other nodes using messages.
 pub struct Node {
     pub id: NodeId,
     pub sender: Sender<Message>,
