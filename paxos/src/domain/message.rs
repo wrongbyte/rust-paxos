@@ -1,17 +1,25 @@
-use super::proposal::Proposal;
+use super::{id::NodeId, proposal::Proposal};
 
 /// A message is how we communicate between proposers, acceptors and learners.
 #[derive(Debug)]
-pub enum Message {
+pub enum MessageType {
     /// Proposer sends a message to all nodes with a proposed value.
-    PrepareRequest(Proposal),
+    PrepareRequest,
     /// Message sent by the acceptors. The acceptor agrees not to accept any
     /// value older than the one sent by the proposer, and returns the last
     /// accepted value to the proposer.
-    PrepareResponse(Proposal),
+    PrepareResponse,
     /// Proposer sends a message to all nodes with a value to be committed.
     CommitRequest,
     // Message sent by the acceptors. The acceptor can agree or reject to
     // commit the value sent by the proposer.
     CommitResponse,
+}
+
+/// A message is how we communicate between proposers, acceptors and learners.
+#[derive(Debug)]
+pub struct Message {
+    pub r#type: MessageType,
+    pub issuer_id: NodeId,
+    pub proposal: Proposal,
 }
