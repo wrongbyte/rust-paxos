@@ -1,6 +1,6 @@
 ### [Paxos made simple](https://lamport.azurewebsites.net/pubs/paxos-simple.pdf)
 
-To run, first setup the environment by running `nix develop` in the root of the repository. If you have `direnv` installed, you can use `direnv allow` to run `nix develop` automatically when you `cd` into the repository.
+To run, first setup the environment by running `nix develop` in the root of the repository, or allow `direnv` to do it automatically if you have it installed in your machine.
 
 ### Architecture
 In this implementation, we simulate a varying number of nodes that communicate with each other. The goal is to simulate a "distributed" fibonacci sequence.
