@@ -10,10 +10,10 @@ pub enum MessageType {
     /// accepted value to the proposer.
     PrepareResponse,
     /// Proposer sends a message to all nodes with a value to be committed.
-    CommitRequest,
+    AcceptRequest,
     // Message sent by the acceptors. The acceptor can agree or reject to
     // commit the value sent by the proposer.
-    CommitResponse,
+    AcceptResponse,
 }
 
 /// A message is how we communicate between proposers, acceptors and learners.

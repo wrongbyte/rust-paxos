@@ -32,8 +32,8 @@ impl Node {
             match message.r#type {
                 MessageType::PrepareRequest => todo!(),
                 MessageType::PrepareResponse => todo!(),
-                MessageType::CommitRequest => todo!(),
-                MessageType::CommitResponse => todo!(),
+                MessageType::AcceptRequest => todo!(),
+                MessageType::AcceptResponse => todo!(),
             }
         }
         Ok(())
