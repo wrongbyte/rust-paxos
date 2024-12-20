@@ -7,6 +7,19 @@ In this implementation, we simulate a varying number of nodes that communicate w
 In each round, proposers are going to send a value `n` that must be added to the current value `n` of the nodes. 
 After the protocol phases are completed, we expect that all nodes will have the same value. This is tested by running the algorithm a few times and checking the value for each node.
 
+```mermaid
+sequenceDiagram
+    participant Proposer
+    participant Acceptor
+    participant Learner
+
+    Proposer->>Acceptor: Prepare(n)
+    Acceptor-->>Proposer: Promise(n, v) (highest seen n and value)
+    Proposer->>Acceptor: Accept(n, v) (proposed value)
+    Acceptor-->>Proposer: Accepted(n, v)
+    Acceptor-->>Learner: Learn(v) (accepted value)
+    Learner-->>Proposer: Acknowledged
+```
 
 TODO
 
