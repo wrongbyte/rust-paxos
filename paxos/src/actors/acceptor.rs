@@ -24,7 +24,7 @@ impl Node {
                 proposal_id_string, node_id_string
             );
             info!(msg);
-            
+
             // Get latest value that is set to be accepted in this node.
             if let Some(proposal_in_buffer) = self.buffer {
                 // The value stored in the node buffer is more up-to-date than the one

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use tokio::sync::{broadcast, mpsc};
 use tracing::info;
 use uuid::Uuid;
@@ -60,15 +62,44 @@ impl Proposer {
         Ok(())
     }
 
+    // TODO: how do we guarantee the value proposed is the correct one, aside of the
+    // proposal id? I guess using a key-value store (can it be in memory?)
     #[tracing::instrument(skip(self))]
-    pub fn handle_prepare_request_response(
+    pub fn handle_prepare_response(
         &mut self,
         received_message: Message,
+        proposals_history: &HashMap<ProposalId, u64>,
     ) -> Result<(), NodeError<Message>> {
         if let Message::PrepareResponse {
             body: received_proposal,
         } = received_message
-        {}
+        {
+            let received_proposal_id = received_proposal.proposal_id;
+            if let Some(latest_proposal) = self.latest_proposal {
+                // If there's a node that received a more updated proposal, we use it to
+                // update the proposed value for next iterations.
+                if received_proposal_id > latest_proposal.id {
+                    let proposal_value = proposals_history
+                        .get(&received_proposal_id)
+                        .ok_or(NodeError::InvalidStateError {
+                        error: format!(
+                            "could not find proposal {} in history",
+                            received_proposal_id.into_inner().to_string()
+                        ),
+                    })?;
+                    self.latest_proposal = Some(Proposal {
+                        id: received_proposal_id,
+                        value: *proposal_value,
+                    })
+                }
+            } else {
+                // TODO: not sure if this should be an error
+                return Err(NodeError::InvalidStateError {
+                    error: "received prepare response without having sent a propose"
+                        .into(),
+                });
+            }
+        }
         Ok(())
     }
 }

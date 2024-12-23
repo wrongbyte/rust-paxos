@@ -1,7 +1,7 @@
+pub mod learner;
 pub mod message;
 pub mod node;
 pub mod proposal;
-pub mod learner;
 
 pub mod id {
     bty::brand!(

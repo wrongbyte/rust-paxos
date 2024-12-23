@@ -29,4 +29,5 @@ sequenceDiagram
 
 TODO
 
-- [] auto format on pre-commit
+- [ ] auto format on pre-commit
+- [ ] use a generic interface to allow nodes to rotate positions, so that for each "round" nodes can be assigned different roles instead of fixed acceptors and proposers. Idk about learners
