@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bty = "0.2.0"
 chrono = { version = "0.4.38", features = ["serde"] }
 serde = { version = "1.0.215", features = ["derive"] }
 uuid = { version = "1.11.0", features = ["serde", "v7"] }
 tokio = { version = "1.42.0", features = ["sync"] }
-rusqlite = "0.32.1"
+tracing = { version = "0.1.41", features = ["attributes"] }
 async-trait = "0.1.83"
+rusqlite = "0.32.1"
+bty = "0.2.0"

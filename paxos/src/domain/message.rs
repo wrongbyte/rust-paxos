@@ -1,25 +1,38 @@
-use super::{id::NodeId, proposal::Proposal};
+use super::id::{NodeId, ProposalId};
 
-/// A message is how we communicate between proposers, acceptors and learners.
 #[derive(Debug)]
-pub enum MessageType {
-    /// Proposer sends a message to all nodes with a proposed value.
-    PrepareRequest,
-    /// Message sent by the acceptors. The acceptor agrees not to accept any
-    /// value older than the one sent by the proposer, and returns the last
-    /// accepted value to the proposer.
-    PrepareResponse,
-    /// Proposer sends a message to all nodes with a value to be committed.
-    AcceptRequest,
-    // Message sent by the acceptors. The acceptor can agree or reject to
-    // commit the value sent by the proposer.
+pub enum Message {
+    /// Message sent by the proposer to all the acceptors. It is the first message of
+    /// the protocol.
+    PrepareRequest {
+        body: PreparePhaseBody,
+    },
+    /// Message sent by the acceptors, containing the latest proposal set to be
+    /// accepted, if any.
+    PrepareResponse {
+        body: PreparePhaseBody,
+    },
+    /// Proposer sends a message to all nodes telling them to accept a value.
+    AcceptRequest {
+        body: AcceptPhaseBody,
+    },
+    // Message sent by the acceptors **iff the value has been accepted**.
     AcceptResponse,
+    /// Message sent to the learners, containing the value accepted by the acceptor.
+    CommitRequest {
+        body: AcceptPhaseBody,
+    },
 }
 
-/// A message is how we communicate between proposers, acceptors and learners.
 #[derive(Debug)]
-pub struct Message {
-    pub r#type: MessageType,
+pub struct PreparePhaseBody {
     pub issuer_id: NodeId,
-    pub proposal: Proposal,
+    pub proposal_id: ProposalId,
+}
+
+#[derive(Debug)]
+pub struct AcceptPhaseBody {
+    pub issuer_id: NodeId,
+    pub proposal_id: ProposalId,
+    pub value: u64,
 }

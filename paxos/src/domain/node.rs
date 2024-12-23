@@ -1,41 +1,53 @@
 use std::io::Error;
 
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{
+    broadcast,
+    broadcast::error as broadcast_error,
+    mpsc::{
+        error as mpsc_error, {self},
+    },
+};
 
 use super::{
-    id::NodeId,
-    message::{Message, MessageType},
-    proposal::Proposal,
+    id::{NodeId, ProposalId},
+    message::Message,
 };
-use crate::repository::ValueRepository;
 
-pub enum NodeError {
+pub enum NodeError<T> {
     RepositoryError { error: rusqlite::Error },
     InvalidStateError { error: String }, // TODO: improve
+    ProposerSenderError { error: mpsc_error::SendError<T> },
+    ProposerReceiverError { error: broadcast_error::RecvError },
+    LearnerSenderError { error: mpsc_error::SendError<T> },
 }
 
-/// A node contains its unique ID as well as the sender and receiver interfaces
-/// to communicate with other nodes using messages.
 pub struct Node {
+    /// Identifier of the node.
     pub id: NodeId,
-    pub sender: Sender<Message>,
-    pub receiver: Receiver<Message>,
-    /// Buffer that stores the value for the node temporarily before
-    /// commiting the changes in the database.
-    pub buffer: Option<Proposal>,
-    pub repository: Box<dyn ValueRepository>,
+    /// Interface to send messages **to** the proposer. This is mpsc (multiple senders
+    /// send to a single consumer, which in this case is the proposer).
+    pub proposer_sender: mpsc::Sender<Message>,
+    /// Interface to receive messages **from** the proposer. Remember, the proposer
+    /// broadcasts proposals.
+    pub proposer_receiver: broadcast::Receiver<Message>,
+    /// Interface to send the accepted value to the learner. TODO: we should have more
+    /// than one learner.
+    pub learner_sender: mpsc::Sender<Message>,
+    /// Buffer that stores temporarily the id of the latest proposal set to be
+    /// accepted in this node.
+    pub buffer: Option<ProposalId>,
 }
 
 impl Node {
     async fn run(&mut self) -> Result<(), Error> {
-        while let Some(message) = self.receiver.recv().await {
-            match message.r#type {
-                MessageType::PrepareRequest => todo!(),
-                MessageType::PrepareResponse => todo!(),
-                MessageType::AcceptRequest => todo!(),
-                MessageType::AcceptResponse => todo!(),
-            }
-        }
+        // while let Some(message) = self.receiver.recv().await {
+        //     match message.r#type {
+        //         MessageType::PrepareRequest => todo!(),
+        //         MessageType::PrepareResponse => todo!(),
+        //         MessageType::AcceptRequest => todo!(),
+        //         MessageType::AcceptResponse => todo!(),
+        //     }
+        // }
         Ok(())
     }
 }

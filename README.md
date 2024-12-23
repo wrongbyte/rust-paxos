@@ -7,6 +7,12 @@ In this implementation, we simulate a varying number of nodes that communicate w
 In each round, proposers are going to send a value `n` that must be added to the current value `n` of the nodes. 
 After the protocol phases are completed, we expect that all nodes will have the same value. This is tested by running the algorithm a few times and checking the value for each node.
 
+For the sake of simplicity, we'll have three learners, separated from other nodes. These learners will be responsible for actually writing the data in the storage.
+
+The algorithm halts in a few scenarios:
+- if there's no proposer, or if there's more than one proposer
+- if there's no learners
+
 ```mermaid
 sequenceDiagram
     participant Proposer

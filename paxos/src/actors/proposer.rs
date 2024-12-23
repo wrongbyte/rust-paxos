@@ -1,119 +1,74 @@
+use tokio::sync::{broadcast, mpsc};
+use tracing::info;
+use uuid::Uuid;
+
 use crate::domain::{
-    message::{Message, MessageType},
-    node::{Node, NodeError},
+    id::{NodeId, ProposalId},
+    message::{Message, PreparePhaseBody},
+    node::NodeError,
     proposal::Proposal,
 };
 
-impl Node {
-    /// The prepare request is the beginning of the algorithm. We set the id
-    pub async fn send_prepare_request(
-        &mut self,
-        received_message: Message,
-    ) -> Result<Message, NodeError> {
-        if let MessageType::PrepareRequest = received_message.r#type {
-            let Message {
-                proposal: received_proposal,
-                ..
-            } = received_message;
-            // Get latest value that is set to be accepted in this node.
-            if let Some(proposal_in_buffer) = self.buffer.as_ref() {
-                // The value stored in the node buffer is more up-to-date than the one
-                // received in the message. **Don't** update the buffer, and reply with
-                // the up-to-date value stored.
-                if proposal_in_buffer.id > received_proposal.id {
-                    Ok(Message {
-                        issuer_id: self.id,
-                        r#type: MessageType::PrepareResponse,
-                        proposal: Proposal {
-                            value: proposal_in_buffer.value,
-                            id: proposal_in_buffer.id,
-                        },
-                    })
-                // The value received is more up-to-date than the one we have stored in
-                // the buffer. Update the buffer and reply with the proposal received.
-                } else {
-                    self.buffer = Some(received_proposal);
-                    Ok(Message {
-                        issuer_id: self.id,
-                        proposal: received_proposal,
-                        r#type: MessageType::PrepareResponse,
-                    })
-                }
-            // This node has not set any value to be accepted, so according to the
-            // algorithm, we set the first value received to be accepted.
-            } else {
-                self.buffer = Some(received_proposal);
+pub struct Proposer {
+    /// Identifier of the node.
+    pub id: NodeId,
+    /// Interface to broadcast messages to the acceptors.
+    pub acceptor_sender: broadcast::Sender<Message>,
+    /// Interface to receive messages **from** the acceptors.
+    pub acceptor_receiver: mpsc::Receiver<Message>,
+    /// Buffer that stores temporarily the id and value of the latest proposal set to
+    /// be accepted by any acceptor.
+    pub latest_proposal: Option<Proposal>,
+}
 
-                Ok(Message {
-                    r#type: MessageType::PrepareResponse,
-                    issuer_id: self.id,
-                    proposal: received_proposal,
-                })
-            }
-        } else {
-            Err(NodeError::InvalidStateError { error: "".into() }) // TODO: describe
-                                                                   // error
+impl Proposer {
+    #[tracing::instrument(skip(self))]
+    pub fn send_prepare_request(
+        &mut self,
+        value: u64,
+    ) -> Result<(), NodeError<Message>> {
+        let proposal_id = ProposalId::unchecked_from_inner(Uuid::now_v7());
+        let proposal = Proposal {
+            id: proposal_id,
+            value,
+        };
+
+        // If `None`, it means this proposal is our first and therefore the most
+        // up-to-date.
+        if self.latest_proposal.is_none() {
+            self.latest_proposal = Some(proposal);
         }
+
+        let active_acceptors = self
+            .acceptor_sender
+            .send(Message::PrepareRequest {
+                body: PreparePhaseBody {
+                    issuer_id: self.id,
+                    proposal_id,
+                },
+            })
+            .expect("could not broadcast proposals"); // TODO: use a decent error
+
+        let msg = format!(
+            "proposer {} proposed value {} for {} acceptors",
+            self.id.into_inner().to_string(),
+            value,
+            active_acceptors
+        );
+        info!(msg);
+
+        Ok(())
     }
 
-    pub async fn send_accept_request(
+    #[tracing::instrument(skip(self))]
+    pub fn handle_prepare_request_response(
         &mut self,
         received_message: Message,
-    ) -> Result<Message, NodeError> {
-        if let MessageType::AcceptRequest = received_message.r#type {
-            let Message {
-                proposal: received_proposal,
-                ..
-            } = received_message;
-            // Get latest value that is set to be accepted in this node.
-            if let Some(proposal_in_buffer) = self.buffer.as_ref() {
-                // The value stored in the node buffer is more up-to-date than the one
-                // received in the message. **Don't** update the buffer, and reply with
-                // the up-to-date value stored.
-                if proposal_in_buffer.id > received_proposal.id {
-                    Ok(Message {
-                        issuer_id: self.id,
-                        r#type: MessageType::AcceptResponse, /* TODO: the accept phase has a response? */
-                        proposal: Proposal {
-                            value: proposal_in_buffer.value,
-                            id: proposal_in_buffer.id,
-                        },
-                    })
-                // The value received is more up-to-date than the one we have stored in
-                // the buffer. **Accept** the proposal (commit it to the database) and
-                // reply with it.
-                } else {
-                    self.repository
-                        .write_latest_value(received_proposal)
-                        .await?;
-
-                    // Clear the buffer after accepting the value.
-                    self.buffer = None;
-
-                    Ok(Message {
-                        issuer_id: self.id,
-                        proposal: received_proposal,
-                        r#type: MessageType::PrepareResponse,
-                    })
-                }
-
-            // This node has not set any value to be accepted, so according to the
-            // algorithm, we accept it. There is no need to clear the buffer because it
-            // is already empty.
-            } else {
-                self.repository
-                    .write_latest_value(received_proposal)
-                    .await?;
-
-                Ok(Message {
-                    r#type: MessageType::PrepareResponse,
-                    issuer_id: self.id,
-                    proposal: received_proposal,
-                })
-            }
-        } else {
-            Err(NodeError::InvalidStateError { error: "".into() }) // TODO: describe
-                                                                   // error
-        }
+    ) -> Result<(), NodeError<Message>> {
+        if let Message::PrepareResponse {
+            body: received_proposal,
+        } = received_message
+        {}
+        Ok(())
     }
 }
