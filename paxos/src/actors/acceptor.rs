@@ -75,7 +75,6 @@ impl Node {
         }
     }
 
-    /// TODO
     /// If the value is accepted:
     ///  - reply to the proposer with an ACK message
     ///  - send the accepted value to the learner

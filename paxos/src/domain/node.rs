@@ -40,14 +40,6 @@ pub struct Node {
 
 impl Node {
     async fn run(&mut self) -> Result<(), Error> {
-        // while let Some(message) = self.receiver.recv().await {
-        //     match message.r#type {
-        //         MessageType::PrepareRequest => todo!(),
-        //         MessageType::PrepareResponse => todo!(),
-        //         MessageType::AcceptRequest => todo!(),
-        //         MessageType::AcceptResponse => todo!(),
-        //     }
-        // }
-        Ok(())
+        todo!();
     }
 }
