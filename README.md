@@ -30,4 +30,7 @@ sequenceDiagram
 TODO
 
 - [ ] auto format on pre-commit
+- [ ] pass parameters using CLI
+- [ ] set up sqlite database
+- [ ] store node ids (in case some node dies, etc)
 - [ ] use a generic interface to allow nodes to rotate positions, so that for each "round" nodes can be assigned different roles instead of fixed acceptors and proposers. Idk about learners

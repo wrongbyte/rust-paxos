@@ -15,7 +15,7 @@ pub trait ValueRepository {
     async fn write_latest_value(
         &self,
         value: Proposal,
-    ) -> Result<Option<Proposal>, NodeError<Message>>;
+    ) -> Result<(), NodeError<Message>>;
 }
 
 #[async_trait::async_trait]
@@ -27,7 +27,8 @@ impl ValueRepository for ValueRepositoryImpl {
     async fn write_latest_value(
         &self,
         value: Proposal,
-    ) -> Result<Option<Proposal>, NodeError<Message>> {
-        todo!()
+    ) -> Result<(), NodeError<Message>> {
+        // TODO: real implementation
+        Ok(())
     }
 }

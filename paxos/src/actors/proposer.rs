@@ -5,7 +5,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::domain::{
-    id::{NodeId, ProposalId},
+    id::ProposalId,
     message::{AcceptPhaseBody, Message, PreparePhaseBody},
     node::NodeError,
     proposal::Proposal,
@@ -13,19 +13,31 @@ use crate::domain::{
 
 pub struct Proposer {
     /// Identifier of the node.
-    pub id: NodeId,
-    /// Interface to broadcast messages to the acceptors.
+    pub id: u64,
+    /// Interface to broadcast messages to the accaeptors.
     pub acceptor_sender: broadcast::Sender<Message>,
     /// Interface to receive messages **from** the acceptors.
     pub acceptor_receiver: mpsc::Receiver<Message>,
     /// Buffer that stores temporarily the id and value of the latest proposal set to
     /// be accepted by any acceptor.
     pub latest_proposal: Option<Proposal>,
-    // pub
 }
 
 impl Proposer {
-    /// TODO: a proposer proposes on a client request 
+    pub fn new(
+        acceptor_sender: broadcast::Sender<Message>,
+        acceptor_receiver: mpsc::Receiver<Message>,
+    ) -> Self {
+        let id = 1; // TODO: CHANGE
+        Self {
+            id,
+            acceptor_sender,
+            acceptor_receiver,
+            latest_proposal: None,
+        }
+    }
+
+    /// TODO: a proposer proposes on a client request
     #[tracing::instrument(skip(self))]
     pub fn send_prepare_request(
         &mut self,
@@ -55,9 +67,7 @@ impl Proposer {
 
         let msg = format!(
             "proposer {} proposed value {} for {} acceptors",
-            self.id.into_inner().to_string(),
-            value,
-            active_acceptors
+            self.id, value, active_acceptors
         );
         info!(msg);
         Ok(())
@@ -133,8 +143,7 @@ impl Proposer {
 
         let msg = format!(
             "proposer {} sent accept request for {} acceptors",
-            self.id.into_inner().to_string(),
-            active_acceptors
+            self.id, active_acceptors
         );
         info!(msg);
 

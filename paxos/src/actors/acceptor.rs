@@ -17,11 +17,10 @@ impl Node {
         {
             let proposal_id_string =
                 received_proposal.proposal_id.into_inner().to_string();
-            let node_id_string = self.id.into_inner().to_string();
 
             let msg = format!(
                 "received proposal {} in node {}",
-                proposal_id_string, node_id_string
+                proposal_id_string, self.id
             );
             info!(msg);
 

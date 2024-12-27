@@ -1,6 +1,6 @@
-use super::id::{NodeId, ProposalId};
+use super::id::ProposalId;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message {
     /// Message sent by the proposer to all the acceptors. It is the first message of
     /// the protocol.
@@ -24,15 +24,15 @@ pub enum Message {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PreparePhaseBody {
-    pub issuer_id: NodeId,
+    pub issuer_id: u64,
     pub proposal_id: ProposalId,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AcceptPhaseBody {
-    pub issuer_id: NodeId,
+    pub issuer_id: u64,
     pub proposal_id: ProposalId,
     pub value: u64,
 }

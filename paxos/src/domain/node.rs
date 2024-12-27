@@ -8,10 +8,7 @@ use tokio::sync::{
     },
 };
 
-use super::{
-    id::{NodeId, ProposalId},
-    message::Message,
-};
+use super::{id::ProposalId, message::Message};
 
 pub enum NodeError<T> {
     RepositoryError { error: rusqlite::Error },
@@ -23,7 +20,9 @@ pub enum NodeError<T> {
 
 pub struct Node {
     /// Identifier of the node.
-    pub id: NodeId,
+    // TODO: this should probably be an uuid, that will be stored in non-volatile
+    // memory to keep track of nodes, especially those thay may die and then restart.
+    pub id: u64,
     /// Interface to send messages **to** the proposer. This is mpsc (multiple senders
     /// send to a single consumer, which in this case is the proposer).
     pub proposer_sender: mpsc::Sender<Message>,
@@ -39,6 +38,21 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn new(
+        id: u64,
+        proposer_sender: mpsc::Sender<Message>,
+        proposer_receiver: broadcast::Receiver<Message>,
+        learner_sender: mpsc::Sender<Message>,
+    ) -> Self {
+        Self {
+            id,
+            proposer_sender,
+            proposer_receiver,
+            learner_sender,
+            buffer: None,
+        }
+    }
+
     async fn run(&mut self) -> Result<(), Error> {
         todo!();
     }
