@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use tokio::sync::{broadcast, mpsc};
-use tracing::info;
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::domain::{
@@ -14,6 +14,9 @@ use crate::domain::{
 pub struct Proposer {
     /// Identifier of the node.
     pub id: u64,
+    /// Interface to receive values from the client, that are assigned an unique id  to
+    /// be broadcast to all the nodes as a proposal.
+    pub client_receiver: mpsc::Receiver<u64>,
     /// Interface to broadcast messages to the accaeptors.
     pub acceptor_sender: broadcast::Sender<Message>,
     /// Interface to receive messages **from** the acceptors.
@@ -27,14 +30,39 @@ impl Proposer {
     pub fn new(
         acceptor_sender: broadcast::Sender<Message>,
         acceptor_receiver: mpsc::Receiver<Message>,
+        client_receiver: mpsc::Receiver<u64>,
     ) -> Self {
-        let id = 1; // TODO: CHANGE
+        let id = 1; // TODO: change when there's more than one proposer
         Self {
             id,
             acceptor_sender,
             acceptor_receiver,
+            client_receiver,
             latest_proposal: None,
         }
+    }
+
+    pub async fn run(&mut self) -> Result<(), NodeError<Message>> {
+        while let Some(value) = self.client_receiver.recv().await {
+            let proposal_id = ProposalId::unchecked_from_inner(Uuid::now_v7());
+            let new_proposal = Proposal::new(value, proposal_id);
+            self.latest_proposal = Some(new_proposal);
+            self.send_prepare_request(value)?;
+            // self.acceptor_sender
+            //     .send(Message::PrepareRequest {
+            //         body: PreparePhaseBody {
+            //             issuer_id: self.id,
+            //             proposal_id: proposal_id,
+            //         },
+            //     })
+            //     .map_err(|e| {
+            //         error!("could not broadcast");
+            //         NodeError::<String>::CommunicationError {
+            //             error: e.to_string(),
+            //         }
+            //     });
+        }
+        Ok(())
     }
 
     /// TODO: a proposer proposes on a client request

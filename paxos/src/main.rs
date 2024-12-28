@@ -1,5 +1,11 @@
+use std::sync::Arc;
+
 use actors::proposer::Proposer;
-use domain::{learner::Learner, message::Message, node::Node};
+use domain::{
+    learner::{LearnMessage, Learner},
+    message::Message,
+    node::Node,
+};
 use repository::ValueRepositoryImpl;
 use tokio::sync::{broadcast, mpsc};
 
@@ -7,7 +13,7 @@ pub mod actors;
 pub mod domain;
 pub mod repository;
 
-/// General rules
+/// General rules:
 /// Only a value that has been proposed may be chosen.
 /// A process never learns that a value has been chosen unless it actually has been.
 #[tokio::main]
@@ -17,15 +23,26 @@ async fn main() {
     let number_nodes = 5;
     let (broadcast_tx, _) = broadcast::channel::<Message>(number_nodes);
     let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(number_nodes);
-    let (learner_tx, learner_rx) = mpsc::channel::<Message>(number_nodes);
+    let (learner_tx, learner_rx) = mpsc::channel::<LearnMessage>(number_nodes);
+    let (client_tx, client_rx) = mpsc::channel::<u64>(1);
 
-    let mock_repository = ValueRepositoryImpl;
-    let proposer = Proposer::new(broadcast_tx.clone(), proposer_rx);
-    let learner = Learner::new(learner_rx, Box::new(mock_repository));
+    let value_repository = ValueRepositoryImpl; // TODO: use real impl
+    let mut proposer = Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx);
+    let mut learner = Learner::new(learner_rx, Arc::new(value_repository));
+
+    // Spawn proposer thread
+    tokio::spawn(async move {
+        proposer.run().await.expect("could not run proposer");
+    });
+
+    // Spawn learner thread
+    tokio::spawn(async move {
+        learner.run().await.expect("could not run learner");
+    });
 
     for i in 0..=number_nodes {
         let node_subscriber = broadcast_tx.subscribe();
-        let acceptor = Node::new(
+        let mut acceptor = Node::new(
             i as u64,
             proposer_tx.clone(),
             node_subscriber,
@@ -36,5 +53,12 @@ async fn main() {
         tokio::spawn(async move {
             acceptor.run().await.expect("could not run acceptor {i}");
         });
+    }
+
+    for i in numbers {
+        client_tx
+            .send(i)
+            .await
+            .expect("could not send value to proposer");
     }
 }

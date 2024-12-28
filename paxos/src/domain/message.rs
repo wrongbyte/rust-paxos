@@ -1,5 +1,7 @@
 use super::id::ProposalId;
 
+// TODO: separate acceptor and proposer messages.
+
 #[derive(Debug, Clone)]
 pub enum Message {
     /// Message sent by the proposer to all the acceptors. It is the first message of
@@ -18,10 +20,6 @@ pub enum Message {
     },
     // Message sent by the acceptors **iff the value has been accepted**.
     AcceptResponse,
-    /// Message sent to the learners, containing the value accepted by the acceptor.
-    CommitRequest {
-        body: AcceptPhaseBody,
-    },
 }
 
 #[derive(Debug, Clone)]

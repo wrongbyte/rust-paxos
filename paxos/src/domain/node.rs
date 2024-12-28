@@ -8,11 +8,13 @@ use tokio::sync::{
     },
 };
 
-use super::{id::ProposalId, message::Message};
+use super::{id::ProposalId, learner::LearnMessage, message::Message};
 
+#[derive(Debug)]
 pub enum NodeError<T> {
     RepositoryError { error: rusqlite::Error },
     InvalidStateError { error: String }, // TODO: improve
+    CommunicationError { error: String },
     ProposerSenderError { error: mpsc_error::SendError<T> },
     ProposerReceiverError { error: broadcast_error::RecvError },
     LearnerSenderError { error: mpsc_error::SendError<T> },
@@ -29,9 +31,8 @@ pub struct Node {
     /// Interface to receive messages **from** the proposer. Remember, the proposer
     /// broadcasts proposals.
     pub proposer_receiver: broadcast::Receiver<Message>,
-    /// Interface to send the accepted value to the learner. TODO: we should have more
-    /// than one learner.
-    pub learner_sender: mpsc::Sender<Message>,
+    /// Interface to send the accepted value to the learner.
+    pub learner_sender: mpsc::Sender<LearnMessage>,
     /// Buffer that stores temporarily the id of the latest proposal set to be
     /// accepted in this node.
     pub buffer: Option<ProposalId>,
@@ -42,7 +43,7 @@ impl Node {
         id: u64,
         proposer_sender: mpsc::Sender<Message>,
         proposer_receiver: broadcast::Receiver<Message>,
-        learner_sender: mpsc::Sender<Message>,
+        learner_sender: mpsc::Sender<LearnMessage>,
     ) -> Self {
         Self {
             id,
@@ -53,7 +54,25 @@ impl Node {
         }
     }
 
-    pub async fn run(&self) -> Result<(), Error> {
-        todo!();
+    pub async fn run(&mut self) -> Result<(), Error> {
+        let received_message = self
+            .proposer_receiver
+            .recv()
+            .await
+            .expect("error receiving message");
+
+        match received_message {
+            Message::PrepareRequest { body } => self
+                .reply_prepare_request(body)
+                .await
+                .expect("could not reply to prepare request, node {self.id}"),
+            Message::AcceptRequest { body } => self
+                .reply_accept_request(body)
+                .await
+                .expect("could not reply to accept request, node {self.id}"),
+            // proposer messages
+            _ => (),
+        };
+        Ok(())
     }
 }

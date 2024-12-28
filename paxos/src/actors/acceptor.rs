@@ -1,7 +1,7 @@
 use tracing::info;
 
 use crate::domain::{
-    message::{Message, PreparePhaseBody},
+    message::{AcceptPhaseBody, Message, PreparePhaseBody},
     node::{Node, NodeError},
 };
 
@@ -9,56 +9,36 @@ impl Node {
     #[tracing::instrument(skip(self))]
     pub async fn reply_prepare_request(
         &mut self,
-        received_message: Message,
+        received_proposal: PreparePhaseBody,
     ) -> Result<(), NodeError<Message>> {
-        if let Message::PrepareRequest {
-            body: received_proposal,
-        } = received_message
-        {
-            let proposal_id_string =
-                received_proposal.proposal_id.into_inner().to_string();
+        let proposal_id_string = received_proposal.proposal_id.into_inner().to_string();
 
-            let msg = format!(
-                "received proposal {} in node {}",
-                proposal_id_string, self.id
-            );
-            info!(msg);
+        let msg = format!(
+            "received proposal {} in node {}",
+            proposal_id_string, self.id
+        );
+        info!(msg);
 
-            // Get latest value that is set to be accepted in this node.
-            if let Some(proposal_in_buffer) = self.buffer {
-                // The value stored in the node buffer is more up-to-date than the one
-                // received in the message. **Don't** update the buffer, and reply with
-                // the up-to-date value stored.
-                if proposal_in_buffer > received_proposal.proposal_id {
-                    self.proposer_sender
-                        .send(Message::PrepareResponse {
-                            body: PreparePhaseBody {
-                                issuer_id: self.id,
-                                proposal_id: proposal_in_buffer,
-                            },
-                        })
-                        .await
-                        .map_err(|e| NodeError::ProposerSenderError { error: e })
-                // The proposal received is more up-to-date than the one we have stored
-                // in the buffer. Update the buffer and reply with the
-                // proposal received.
-                } else {
-                    self.buffer = Some(received_proposal.proposal_id);
-                    self.proposer_sender
-                        .send(Message::PrepareResponse {
-                            body: PreparePhaseBody {
-                                issuer_id: self.id,
-                                proposal_id: received_proposal.proposal_id,
-                            },
-                        })
-                        .await
-                        .map_err(|e| NodeError::ProposerSenderError { error: e })
-                }
-            // This node has not set any value to be accepted, so according to the
-            // algorithm, we set the first value received to be accepted.
+        // Get latest value that is set to be accepted in this node.
+        if let Some(proposal_in_buffer) = self.buffer {
+            // The value stored in the node buffer is more up-to-date than the one
+            // received in the message. **Don't** update the buffer, and reply with
+            // the up-to-date value stored.
+            if proposal_in_buffer > received_proposal.proposal_id {
+                self.proposer_sender
+                    .send(Message::PrepareResponse {
+                        body: PreparePhaseBody {
+                            issuer_id: self.id,
+                            proposal_id: proposal_in_buffer,
+                        },
+                    })
+                    .await
+                    .map_err(|e| NodeError::ProposerSenderError { error: e })
+            // The proposal received is more up-to-date than the one we have stored
+            // in the buffer. Update the buffer and reply with the
+            // proposal received.
             } else {
                 self.buffer = Some(received_proposal.proposal_id);
-
                 self.proposer_sender
                     .send(Message::PrepareResponse {
                         body: PreparePhaseBody {
@@ -69,8 +49,20 @@ impl Node {
                     .await
                     .map_err(|e| NodeError::ProposerSenderError { error: e })
             }
+        // This node has not set any value to be accepted, so according to the
+        // algorithm, we set the first value received to be accepted.
         } else {
-            Err(NodeError::InvalidStateError { error: "".into() }) // TODO
+            self.buffer = Some(received_proposal.proposal_id);
+
+            self.proposer_sender
+                .send(Message::PrepareResponse {
+                    body: PreparePhaseBody {
+                        issuer_id: self.id,
+                        proposal_id: received_proposal.proposal_id,
+                    },
+                })
+                .await
+                .map_err(|e| NodeError::ProposerSenderError { error: e })
         }
     }
 
@@ -81,44 +73,36 @@ impl Node {
     #[tracing::instrument(skip(self))]
     pub async fn reply_accept_request(
         &mut self,
-        received_message: Message,
+        received_proposal: AcceptPhaseBody,
     ) -> Result<(), NodeError<Message>> {
-        if let Message::AcceptRequest {
-            body: received_proposal,
-        } = received_message
-        {
-            // Get latest value that is set to be accepted in this node.
-            if let Some(proposal_in_buffer) = self.buffer {
-                // The value stored in the node buffer is more up-to-date than the one
-                // received in the message. **Don't** update the buffer, and reply with
-                // the up-to-date proposal stored.
-                if proposal_in_buffer > received_proposal.proposal_id {
-                    Ok(())
-                // The value received is more up-to-date than the one we have stored in
-                // the buffer. **Accept** the proposal (answer the proposer and
-                // send the accepted value to learners)
-                } else {
-                    // Clear the buffer after accepting the value.
-                    self.buffer = None;
-
-                    self.proposer_sender
-                        .send(Message::AcceptResponse)
-                        .await
-                        .map_err(|e| NodeError::ProposerSenderError { error: e })
-                }
-
-            // This node has not set any value to be accepted, so according to the
-            // algorithm, we accept it. There is no need to clear the buffer because it
-            // is already empty.
+        // Get latest value that is set to be accepted in this node.
+        if let Some(proposal_in_buffer) = self.buffer {
+            // The value stored in the node buffer is more up-to-date than the one
+            // received in the message. **Don't** update the buffer, and reply with
+            // the up-to-date proposal stored.
+            if proposal_in_buffer > received_proposal.proposal_id {
+                Ok(())
+            // The value received is more up-to-date than the one we have stored in
+            // the buffer. **Accept** the proposal (answer the proposer and
+            // send the accepted value to learners)
             } else {
+                // Clear the buffer after accepting the value.
+                self.buffer = None;
+
                 self.proposer_sender
                     .send(Message::AcceptResponse)
                     .await
                     .map_err(|e| NodeError::ProposerSenderError { error: e })
             }
+
+        // This node has not set any value to be accepted, so according to the
+        // algorithm, we accept it. There is no need to clear the buffer because it
+        // is already empty.
         } else {
-            Err(NodeError::InvalidStateError { error: "".into() }) // TODO: describe
-                                                                   // error
+            self.proposer_sender
+                .send(Message::AcceptResponse)
+                .await
+                .map_err(|e| NodeError::ProposerSenderError { error: e })
         }
     }
 }
