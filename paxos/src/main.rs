@@ -25,11 +25,16 @@ async fn main() {
 
     for i in 0..=number_nodes {
         let node_subscriber = broadcast_tx.subscribe();
-        Node::new(
+        let acceptor = Node::new(
             i as u64,
             proposer_tx.clone(),
             node_subscriber,
             learner_tx.clone(),
         );
+
+        // Each participant has its own thread.
+        tokio::spawn(async move {
+            acceptor.run().await.expect("could not run acceptor {i}");
+        });
     }
 }

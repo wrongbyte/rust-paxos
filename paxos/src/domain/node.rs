@@ -53,7 +53,7 @@ impl Node {
         }
     }
 
-    async fn run(&mut self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<(), Error> {
         todo!();
     }
 }
