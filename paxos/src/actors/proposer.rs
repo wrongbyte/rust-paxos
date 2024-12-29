@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use tokio::sync::{broadcast, mpsc};
-use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::domain::{
@@ -17,13 +16,15 @@ pub struct Proposer {
     /// Interface to receive values from the client, that are assigned an unique id  to
     /// be broadcast to all the nodes as a proposal.
     pub client_receiver: mpsc::Receiver<u64>,
-    /// Interface to broadcast messages to the accaeptors.
+    /// Interface to broadcast messages to the acceptors.
     pub acceptor_sender: broadcast::Sender<Message>,
     /// Interface to receive messages **from** the acceptors.
     pub acceptor_receiver: mpsc::Receiver<Message>,
     /// Buffer that stores temporarily the id and value of the latest proposal set to
     /// be accepted by any acceptor.
     pub latest_proposal: Option<Proposal>,
+    // TODO: improve
+    pub proposal_history: HashMap<ProposalId, u64>,
 }
 
 impl Proposer {
@@ -33,35 +34,44 @@ impl Proposer {
         client_receiver: mpsc::Receiver<u64>,
     ) -> Self {
         let id = 1; // TODO: change when there's more than one proposer
+        let proposal_history = HashMap::new();
         Self {
             id,
             acceptor_sender,
             acceptor_receiver,
             client_receiver,
             latest_proposal: None,
+            proposal_history,
         }
     }
 
     pub async fn run(&mut self) -> Result<(), NodeError<Message>> {
-        while let Some(value) = self.client_receiver.recv().await {
-            let proposal_id = ProposalId::unchecked_from_inner(Uuid::now_v7());
-            let new_proposal = Proposal::new(value, proposal_id);
-            self.latest_proposal = Some(new_proposal);
-            self.send_prepare_request(value)?;
-            // self.acceptor_sender
-            //     .send(Message::PrepareRequest {
-            //         body: PreparePhaseBody {
-            //             issuer_id: self.id,
-            //             proposal_id: proposal_id,
-            //         },
-            //     })
-            //     .map_err(|e| {
-            //         error!("could not broadcast");
-            //         NodeError::<String>::CommunicationError {
-            //             error: e.to_string(),
-            //         }
-            //     });
+        loop {
+            // Listen to both channels concurrently.
+            tokio::select! {
+                // Handle messages from the client_receiver
+                Some(client_value) = self.client_receiver.recv() => {
+                    self.send_prepare_request(client_value)?;
+                },
+                // Handle messages from the acceptor_receiver
+                Some(received_message) = self.acceptor_receiver.recv() => {
+                    match received_message {
+                        Message::PrepareResponse { body } => {
+                            self.handle_prepare_response(body)?;
+                        }
+                        Message::AcceptResponse => self.handle_accept_response(),
+                        _ => (),
+                    }
+                },
+                // Handle both channels being closed
+                else => {
+                    // Both channels are closed, so we break out of the loop
+                    break;
+                }
+            }
         }
+        println!("arroz batata");
+
         Ok(())
     }
 
@@ -72,16 +82,11 @@ impl Proposer {
         value: u64,
     ) -> Result<(), NodeError<Message>> {
         let proposal_id = ProposalId::unchecked_from_inner(Uuid::now_v7());
-        let proposal = Proposal {
-            id: proposal_id,
-            value,
-        };
+        let new_proposal = Proposal::new(value, proposal_id);
+        self.proposal_history.entry(proposal_id).or_insert(value);
+        dbg!(&self.proposal_history);
 
-        // If `None`, it means this proposal is our first and therefore the most
-        // up-to-date.
-        if self.latest_proposal.is_none() {
-            self.latest_proposal = Some(proposal);
-        }
+        self.latest_proposal = Some(new_proposal);
 
         let active_acceptors = self
             .acceptor_sender
@@ -97,52 +102,43 @@ impl Proposer {
             "proposer {} proposed value {} for {} acceptors",
             self.id, value, active_acceptors
         );
-        info!(msg);
+        println!("{msg}");
+        // info!(msg);
         Ok(())
     }
 
     #[tracing::instrument(skip(self))]
     pub fn handle_prepare_response(
         &mut self,
-        received_message: Message,
-        proposals_history: &HashMap<ProposalId, u64>,
+        received_proposal: PreparePhaseBody,
     ) -> Result<(), NodeError<Message>> {
-        if let Message::PrepareResponse {
-            body: received_proposal,
-        } = received_message
-        {
-            let received_proposal_id = received_proposal.proposal_id;
-            if let Some(latest_proposal) = self.latest_proposal {
-                // If there's a node that received a more up-to-date proposal, we use it
-                // to update the proposed value for the next iterations.
-                if received_proposal_id > latest_proposal.id {
-                    let proposal_value = proposals_history
-                        .get(&received_proposal_id)
-                        .ok_or(NodeError::InvalidStateError {
-                        error: format!(
-                            "could not find proposal {} in history",
-                            received_proposal_id.into_inner().to_string()
-                        ),
-                    })?;
-                    self.latest_proposal = Some(Proposal {
-                        id: received_proposal_id,
-                        value: *proposal_value,
-                    })
-                }
-            } else {
-                // TODO: not sure if this should be an error
-                return Err(NodeError::InvalidStateError {
-                    error: "received prepare response without having sent a propose
-                            first"
-                        .into(),
-                });
+        let received_proposal_id = received_proposal.proposal_id;
+        println!(
+            "received prepare response from node {}",
+            received_proposal.issuer_id
+        );
+        if let Some(latest_proposal) = self.latest_proposal {
+            // If there's a node that received a more up-to-date proposal, we use it
+            // to update the proposed value for the next iterations.
+            if received_proposal_id > latest_proposal.id {
+                let proposal_value = self
+                    .proposal_history
+                    .get(&received_proposal_id)
+                    .ok_or(NodeError::InvalidStateError {
+                    error: format!(
+                        "could not find proposal {} in history",
+                        received_proposal_id.into_inner().to_string()
+                    ),
+                })?;
+                self.latest_proposal = Some(Proposal {
+                    id: received_proposal_id,
+                    value: *proposal_value,
+                })
             }
         }
         Ok(())
     }
 
-    /// VERIFY: it should only be sent when the majority of the acceptors have replied
-    /// the prepare request. How do we check it?
     #[tracing::instrument(skip(self))]
     pub fn send_accept_request(
         &mut self,
@@ -173,7 +169,7 @@ impl Proposer {
             "proposer {} sent accept request for {} acceptors",
             self.id, active_acceptors
         );
-        info!(msg);
+        println!("{msg}");
 
         Ok(())
     }

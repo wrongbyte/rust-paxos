@@ -52,10 +52,11 @@ impl Learner {
                 node_id,
                 proposal_id.into_inner().to_string()
             );
-            info!(msg_str);
+
+            println!("{msg_str}");
+            // info!(msg_str);
 
             //TODO: verify if the majority has accepted, if so, commit to database.
-            info!("")
         }
         todo!();
     }
@@ -71,7 +72,7 @@ impl Learner {
             node_id,
             proposal_id,
         } = received_message;
-        info!("received accepted value {value} from node {node_id}");
+        println!("received accepted value {value} from node {node_id}");
 
         self.repository
             .write_latest_value(Proposal {

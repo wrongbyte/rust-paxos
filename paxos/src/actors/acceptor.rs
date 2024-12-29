@@ -1,5 +1,3 @@
-use tracing::info;
-
 use crate::domain::{
     message::{AcceptPhaseBody, Message, PreparePhaseBody},
     node::{Node, NodeError},
@@ -17,38 +15,36 @@ impl Node {
             "received proposal {} in node {}",
             proposal_id_string, self.id
         );
-        info!(msg);
+        println!("{msg}");
 
         // Get latest value that is set to be accepted in this node.
         if let Some(proposal_in_buffer) = self.buffer {
+            let up_to_date_proposal =
+                if proposal_in_buffer > received_proposal.proposal_id {
+                    println!("proposal in buffer is more updated");
+                    proposal_in_buffer
+                } else {
+                    println!("proposal received is more updated");
+                    received_proposal.proposal_id
+                };
             // The value stored in the node buffer is more up-to-date than the one
             // received in the message. **Don't** update the buffer, and reply with
             // the up-to-date value stored.
-            if proposal_in_buffer > received_proposal.proposal_id {
-                self.proposer_sender
-                    .send(Message::PrepareResponse {
-                        body: PreparePhaseBody {
-                            issuer_id: self.id,
-                            proposal_id: proposal_in_buffer,
-                        },
-                    })
-                    .await
-                    .map_err(|e| NodeError::ProposerSenderError { error: e })
             // The proposal received is more up-to-date than the one we have stored
             // in the buffer. Update the buffer and reply with the
             // proposal received.
-            } else {
-                self.buffer = Some(received_proposal.proposal_id);
-                self.proposer_sender
-                    .send(Message::PrepareResponse {
-                        body: PreparePhaseBody {
-                            issuer_id: self.id,
-                            proposal_id: received_proposal.proposal_id,
-                        },
-                    })
-                    .await
-                    .map_err(|e| NodeError::ProposerSenderError { error: e })
-            }
+            self.buffer = Some(up_to_date_proposal);
+
+            self.proposer_sender
+                .send(Message::PrepareResponse {
+                    body: PreparePhaseBody {
+                        issuer_id: self.id,
+                        proposal_id: up_to_date_proposal,
+                    },
+                })
+                .await
+                .map_err(|e| NodeError::ProposerSenderError { error: e })
+
         // This node has not set any value to be accepted, so according to the
         // algorithm, we set the first value received to be accepted.
         } else {

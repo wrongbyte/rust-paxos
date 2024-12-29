@@ -70,7 +70,6 @@ impl Node {
                 .reply_accept_request(body)
                 .await
                 .expect("could not reply to accept request, node {self.id}"),
-            // proposer messages
             _ => (),
         };
         Ok(())
