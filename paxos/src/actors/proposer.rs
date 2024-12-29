@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use tokio::sync::{broadcast, mpsc};
 use uuid::Uuid;
@@ -10,6 +10,8 @@ use crate::domain::{
     proposal::Proposal,
 };
 
+/// Node that broadcast proposals to all the acceptors. All the information stored in
+/// this struct is ephemeral, being erased once the round finishes.
 pub struct Proposer {
     /// Identifier of the node.
     pub id: u64,
@@ -23,8 +25,11 @@ pub struct Proposer {
     /// Buffer that stores temporarily the id and value of the latest proposal set to
     /// be accepted by any acceptor.
     pub latest_proposal: Option<Proposal>,
-    // TODO: improve
+    /// History of proposals sent by this proposer, and their respective values.
     pub proposal_history: HashMap<ProposalId, u64>,
+    pub active_nodes: u64,
+    /// Number of nodes that replied to the prepare request.
+    pub prepared_nodes: HashSet<u64>,
 }
 
 impl Proposer {
@@ -35,6 +40,8 @@ impl Proposer {
     ) -> Self {
         let id = 1; // TODO: change when there's more than one proposer
         let proposal_history = HashMap::new();
+        let active_nodes = 0;
+        let prepared_nodes = HashSet::new();
         Self {
             id,
             acceptor_sender,
@@ -42,18 +49,18 @@ impl Proposer {
             client_receiver,
             latest_proposal: None,
             proposal_history,
+            active_nodes,
+            prepared_nodes,
         }
     }
 
     pub async fn run(&mut self) -> Result<(), NodeError<Message>> {
+        // Listen to both channels simultaneously.
         loop {
-            // Listen to both channels concurrently.
             tokio::select! {
-                // Handle messages from the client_receiver
                 Some(client_value) = self.client_receiver.recv() => {
                     self.send_prepare_request(client_value)?;
                 },
-                // Handle messages from the acceptor_receiver
                 Some(received_message) = self.acceptor_receiver.recv() => {
                     match received_message {
                         Message::PrepareResponse { body } => {
@@ -63,19 +70,19 @@ impl Proposer {
                         _ => (),
                     }
                 },
-                // Handle both channels being closed
                 else => {
-                    // Both channels are closed, so we break out of the loop
+                    // Both channels are closed, so we break out of the loop.
                     break;
                 }
             }
         }
-        println!("arroz batata");
-
         Ok(())
     }
 
-    /// TODO: a proposer proposes on a client request
+    /// The beginning of the protocol. The proposer broadcasts a proposal to all the
+    /// acceptors, using a value it received from the client.
+    /// In this step, we also store how many nodes are active. This information is then
+    /// later used for computations that rely on quorum.
     #[tracing::instrument(skip(self))]
     pub fn send_prepare_request(
         &mut self,
@@ -88,35 +95,39 @@ impl Proposer {
 
         self.latest_proposal = Some(new_proposal);
 
-        let active_acceptors = self
-            .acceptor_sender
+        let acceptor_sender_clone = self.acceptor_sender.clone();
+
+        let active_acceptors = acceptor_sender_clone
             .send(Message::PrepareRequest {
                 body: PreparePhaseBody {
                     issuer_id: self.id,
                     proposal_id,
                 },
             })
-            .expect("could not broadcast proposals"); // TODO: use a decent error
+            .expect("could not broadcast proposals");
 
+        self.active_nodes = active_acceptors as u64;
         let msg = format!(
             "proposer {} proposed value {} for {} acceptors",
             self.id, value, active_acceptors
         );
         println!("{msg}");
-        // info!(msg);
         Ok(())
     }
 
+    ///
     #[tracing::instrument(skip(self))]
     pub fn handle_prepare_response(
         &mut self,
         received_proposal: PreparePhaseBody,
     ) -> Result<(), NodeError<Message>> {
         let received_proposal_id = received_proposal.proposal_id;
+        let node_id = received_proposal.issuer_id;
         println!(
             "received prepare response from node {}",
             received_proposal.issuer_id
         );
+
         if let Some(latest_proposal) = self.latest_proposal {
             // If there's a node that received a more up-to-date proposal, we use it
             // to update the proposed value for the next iterations.
@@ -136,16 +147,20 @@ impl Proposer {
                 })
             }
         }
+
+        self.prepared_nodes.insert(node_id);
+        if self.prepared_nodes.iter().count() as u64 > self.active_nodes / 2 {
+            self.send_accept_request()?;
+        }
+
         Ok(())
     }
 
+    /// The
     #[tracing::instrument(skip(self))]
-    pub fn send_accept_request(
-        &mut self,
-        proposals_history: &HashMap<ProposalId, u64>,
-    ) -> Result<(), NodeError<Message>> {
+    pub fn send_accept_request(&mut self) -> Result<(), NodeError<Message>> {
         let latest_proposal_id = self.latest_proposal.unwrap().id;
-        let proposal_value = proposals_history.get(&latest_proposal_id).ok_or(
+        let proposal_value = self.proposal_history.get(&latest_proposal_id).ok_or(
             NodeError::InvalidStateError {
                 error: format!(
                     "could not find proposal {} in history",
@@ -154,6 +169,7 @@ impl Proposer {
             },
         )?;
 
+        // self.acceptor_sender =
         let active_acceptors = self
             .acceptor_sender
             .send(Message::AcceptRequest {
@@ -163,7 +179,8 @@ impl Proposer {
                     value: *proposal_value,
                 },
             })
-            .expect("could not send accept messages");
+            .inspect_err(|e| println!("error: {e}"))
+            .expect("could not broadcast accept messages");
 
         let msg = format!(
             "proposer {} sent accept request for {} acceptors",

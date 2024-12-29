@@ -26,7 +26,7 @@ impl ValueRepository for ValueRepositoryImpl {
 
     async fn write_latest_value(
         &self,
-        value: Proposal,
+        _value: Proposal,
     ) -> Result<(), NodeError<Message>> {
         // TODO: real implementation
         Ok(())

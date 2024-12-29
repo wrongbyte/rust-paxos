@@ -1,7 +1,6 @@
 use super::id::ProposalId;
 
 // TODO: separate acceptor and proposer messages.
-
 #[derive(Debug, Clone)]
 pub enum Message {
     /// Message sent by the proposer to all the acceptors. It is the first message of

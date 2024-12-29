@@ -1,7 +1,6 @@
 use std::{collections::HashMap, io::Error, sync::Arc};
 
 use tokio::sync::mpsc;
-use tracing::info;
 
 use super::{id::ProposalId, message::Message, node::NodeError, proposal::Proposal};
 use crate::repository::ValueRepository;
