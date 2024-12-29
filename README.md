@@ -29,6 +29,7 @@ TODO
 - [ ] pass parameters using CLI
 - [ ] set up sqlite database
 - [ ] make tracing work e.e
+- [ ] handle `Lagged` error in broadcast. Congestion window?
 - [ ] store node ids (in case some node dies, etc)
 - [ ] allow more learners
 - [ ] allow more proposers
