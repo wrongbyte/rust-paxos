@@ -9,6 +9,10 @@ After the protocol phases are completed, we expect that all nodes will have the 
 
 This is a kind of simplified version of Paxos, so for now it does not support multiple proposers and learners. It also implies that the algorithm will halt if there's no proposer os learner (which is, if their nodes die in the process).
 
+In this implementation, the proposer performs the roles of both the proposer and learner, being the "leader" of the round, as stated in the "Paxos made simple" paper:
+
+> The algorithm chooses a leader, which plays the roles of the distinguished proposer and the distinguished learner. 
+
 ```mermaid
 sequenceDiagram
     participant Proposer
@@ -28,7 +32,6 @@ TODO
 - [ ] auto format on pre-commit
 - [ ] pass parameters using CLI
 - [ ] set up sqlite database
-- [ ] make tracing work e.e
 - [ ] handle `Lagged` error in broadcast. Congestion window?
 - [ ] store node ids (in case some node dies, etc)
 - [ ] allow more learners

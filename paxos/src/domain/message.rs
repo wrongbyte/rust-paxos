@@ -18,7 +18,9 @@ pub enum Message {
         body: AcceptPhaseBody,
     },
     // Message sent by the acceptors **iff the value has been accepted**.
-    AcceptResponse,
+    AcceptResponse {
+        body: AcceptPhaseBody,
+    },
 }
 
 #[derive(Debug, Clone)]

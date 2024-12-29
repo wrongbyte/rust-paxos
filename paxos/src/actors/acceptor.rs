@@ -1,7 +1,6 @@
-use tracing::{debug, error};
+use tracing::debug;
 
 use crate::domain::{
-    learner::LearnMessage,
     message::{AcceptPhaseBody, Message, PreparePhaseBody},
     node::{Node, NodeError},
 };
@@ -62,6 +61,10 @@ impl Node {
         &mut self,
         received_proposal: AcceptPhaseBody,
     ) -> Result<(), NodeError<Message>> {
+        let accept_response = AcceptPhaseBody {
+            issuer_id: self.id,
+            ..received_proposal
+        };
         if let Some(proposal_in_buffer) = self.buffer {
             debug!("received accept request");
             if proposal_in_buffer > received_proposal.proposal_id {
@@ -74,19 +77,11 @@ impl Node {
                 self.buffer = None;
 
                 self.proposer_sender
-                    .send(Message::AcceptResponse)
-                    .await
-                    .map_err(|e| NodeError::ProposerSenderError { error: e })?;
-
-                self.learner_sender
-                    .send(LearnMessage {
-                        node_id: self.id,
-                        proposal_id: received_proposal.proposal_id,
-                        value: received_proposal.value,
+                    .send(Message::AcceptResponse {
+                        body: accept_response,
                     })
                     .await
-                    .inspect_err(|e| error!("{e}"))
-                    .expect("error sending to learners");
+                    .map_err(|e| NodeError::ProposerSenderError { error: e })?;
 
                 Ok(())
             }
@@ -96,7 +91,9 @@ impl Node {
         // is already empty.
         } else {
             self.proposer_sender
-                .send(Message::AcceptResponse)
+                .send(Message::AcceptResponse {
+                    body: accept_response,
+                })
                 .await
                 .map_err(|e| NodeError::ProposerSenderError { error: e })
         }

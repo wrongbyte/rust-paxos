@@ -8,7 +8,7 @@ use tokio::sync::{
     },
 };
 
-use super::{id::ProposalId, learner::LearnMessage, message::Message};
+use super::{id::ProposalId, message::Message};
 
 #[derive(Debug)]
 pub enum NodeError<T> {
@@ -31,8 +31,6 @@ pub struct Node {
     /// Interface to receive messages **from** the proposer. Remember, the proposer
     /// broadcasts proposals.
     pub proposer_receiver: broadcast::Receiver<Message>,
-    /// Interface to send the accepted value to the learner.
-    pub learner_sender: mpsc::Sender<LearnMessage>,
     /// Buffer that stores temporarily the id of the latest proposal set to be
     /// accepted in this node.
     pub buffer: Option<ProposalId>,
@@ -43,13 +41,11 @@ impl Node {
         id: u64,
         proposer_sender: mpsc::Sender<Message>,
         proposer_receiver: broadcast::Receiver<Message>,
-        learner_sender: mpsc::Sender<LearnMessage>,
     ) -> Self {
         Self {
             id,
             proposer_sender,
             proposer_receiver,
-            learner_sender,
             buffer: None,
         }
     }

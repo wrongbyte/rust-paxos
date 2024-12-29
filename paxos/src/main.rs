@@ -1,12 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use ::tracing::debug;
 use actors::proposer::Proposer;
-use domain::{
-    learner::{LearnMessage, Learner},
-    message::Message,
-    node::Node,
-};
+use domain::{message::Message, node::Node};
 use repository::ValueRepositoryImpl;
 use tokio::{
     sync::{broadcast, mpsc},
@@ -32,45 +27,33 @@ async fn main() {
         .init();
     // let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     // let fibonacci = vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34];
-    let number_nodes = 2;
+    let number_nodes = 10;
     let (broadcast_tx, _) = broadcast::channel::<Message>(1000);
     let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(number_nodes);
-    let (learner_tx, learner_rx) = mpsc::channel::<LearnMessage>(number_nodes);
     let (client_tx, client_rx) = mpsc::channel::<u64>(number_nodes);
 
-    let value_repository = ValueRepositoryImpl; // TODO: use real impl
+    let _value_repository = ValueRepositoryImpl; // TODO: use real impl
     let mut proposer = Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx);
-    let mut learner = Learner::new(learner_rx, Arc::new(value_repository));
 
     tokio::spawn(async move {
         proposer.run().await.expect("could not run proposer");
     });
 
-    tokio::spawn(async move {
-        learner.run().await.expect("could not run learner");
-    });
-
     for i in 0..number_nodes {
         let node_subscriber = broadcast_tx.subscribe();
-        let mut acceptor = Node::new(
-            i as u64,
-            proposer_tx.clone(),
-            node_subscriber,
-            learner_tx.clone(),
-        );
+        let mut acceptor = Node::new(i as u64, proposer_tx.clone(), node_subscriber);
 
         tokio::spawn(async move {
             acceptor.run().await.expect("could not run acceptor {i}");
-            debug!("exited the acceptor loop");
         });
     }
 
-    // for i in 0..5 {
-    client_tx
-        .send(10)
-        .await
-        .expect("could not send value to proposer");
-    // }
+    for i in 0..5 {
+        client_tx
+            .send(i)
+            .await
+            .expect("could not send value to proposer");
+    }
     sleep(Duration::from_secs(10)).await;
 }
 

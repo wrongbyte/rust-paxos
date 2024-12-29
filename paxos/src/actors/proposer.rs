@@ -27,9 +27,10 @@ pub struct Proposer {
     pub latest_proposal: Option<Proposal>,
     /// History of proposals sent by this proposer, and their respective values.
     pub proposal_history: HashMap<ProposalId, u64>,
-    pub active_nodes: u64,
-    /// Number of nodes that replied to the prepare request.
+    /// Nodes that replied to the prepare request.
     pub prepared_nodes: HashSet<u64>,
+    /// Nodes that replied to the accept request.
+    pub accepted_value_nodes: HashSet<u64>,
 }
 
 impl Proposer {
@@ -39,9 +40,10 @@ impl Proposer {
         client_receiver: mpsc::Receiver<u64>,
     ) -> Self {
         let id = 1; // TODO: change when there's more than one proposer
-        let active_nodes = 0;
         let proposal_history = HashMap::new();
         let prepared_nodes = HashSet::new();
+        let accepted_value_nodes = HashSet::new();
+
         Self {
             id,
             acceptor_sender,
@@ -49,7 +51,7 @@ impl Proposer {
             client_receiver,
             latest_proposal: None,
             proposal_history,
-            active_nodes,
+            accepted_value_nodes,
             prepared_nodes,
         }
     }
@@ -67,7 +69,7 @@ impl Proposer {
                         Message::PrepareResponse { body } => {
                             self.handle_prepare_response(body)?;
                         }
-                        Message::AcceptResponse => self.handle_accept_response(),
+                        Message::AcceptResponse { body }=> self.handle_accept_response(body),
                         _ => (),
                     }
                 },
@@ -89,7 +91,6 @@ impl Proposer {
         &mut self,
         value: u64,
     ) -> Result<(), NodeError<Message>> {
-        info!("teste");
         let proposal_id = ProposalId::unchecked_from_inner(Uuid::now_v7());
         let new_proposal = Proposal::new(value, proposal_id);
         self.proposal_history.entry(proposal_id).or_insert(value);
@@ -108,12 +109,7 @@ impl Proposer {
             })
             .expect("could not broadcast proposals");
 
-        self.active_nodes = active_acceptors as u64;
-
-        debug!(
-            "proposer {} proposed for {} acceptors",
-            self.id, active_acceptors
-        );
+        debug!("proposing for {} acceptors", active_acceptors);
         Ok(())
     }
 
@@ -150,7 +146,10 @@ impl Proposer {
         }
 
         self.prepared_nodes.insert(node_id);
-        if self.prepared_nodes.iter().count() as u64 > self.active_nodes / 2 {
+
+        if self.prepared_nodes.iter().count()
+            > self.acceptor_sender.receiver_count() / 2
+        {
             self.send_accept_request()?;
         }
 
@@ -188,6 +187,31 @@ impl Proposer {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
-    pub fn handle_accept_response(&self) {}
+    #[tracing::instrument(skip_all)]
+    pub fn handle_accept_response(&mut self, received_message: AcceptPhaseBody) {
+        let AcceptPhaseBody {
+            issuer_id,
+            proposal_id,
+            value,
+        } = received_message;
+
+        debug!(
+            value,
+            issuer_id,
+            proposal_id = proposal_id.into_inner().to_string(),
+            "received accepted value",
+        );
+        self.accepted_value_nodes.insert(issuer_id);
+
+        if self.accepted_value_nodes.iter().count()
+            > self.acceptor_sender.receiver_count() / 2
+        {
+            // End of protocol
+            info!(
+                "quorum reached by {}, value {} accepted",
+                self.accepted_value_nodes.iter().count(),
+                value
+            );
+        }
+    }
 }
