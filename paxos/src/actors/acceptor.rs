@@ -1,38 +1,29 @@
+use tracing::{debug, error};
+
 use crate::domain::{
+    learner::LearnMessage,
     message::{AcceptPhaseBody, Message, PreparePhaseBody},
     node::{Node, NodeError},
 };
 
 impl Node {
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, fields(node_id = self.id, proposal_id = received_proposal.proposal_id.into_inner().to_string()))]
     pub async fn reply_prepare_request(
         &mut self,
         received_proposal: PreparePhaseBody,
     ) -> Result<(), NodeError<Message>> {
-        let proposal_id_string = received_proposal.proposal_id.into_inner().to_string();
-
-        let msg = format!(
-            "received proposal {} in node {}",
-            proposal_id_string, self.id
-        );
-        println!("{msg}");
+        debug!("received proposal");
 
         // Get latest value that is set to be accepted in this node.
         if let Some(proposal_in_buffer) = self.buffer {
             let up_to_date_proposal =
                 if proposal_in_buffer > received_proposal.proposal_id {
-                    println!("proposal in buffer is more updated");
+                    debug!("proposal in node {} buffer is more updated", self.id);
                     proposal_in_buffer
                 } else {
-                    println!("proposal received is more updated");
+                    debug!("proposal received in node {} is more updated", self.id);
                     received_proposal.proposal_id
                 };
-            // The value stored in the node buffer is more up-to-date than the one
-            // received in the message. **Don't** update the buffer, and reply with
-            // the up-to-date value stored.
-            // The proposal received is more up-to-date than the one we have stored
-            // in the buffer. Update the buffer and reply with the
-            // proposal received.
             self.buffer = Some(up_to_date_proposal);
 
             self.proposer_sender
@@ -66,16 +57,13 @@ impl Node {
     ///  - reply to the proposer with an ACK message
     ///  - send the accepted value to the learner
     /// If the value is not accepted, simply ignore the message received and do nothing.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, fields(node_id = self.id, proposal_id = received_proposal.proposal_id.into_inner().to_string()))]
     pub async fn reply_accept_request(
         &mut self,
         received_proposal: AcceptPhaseBody,
     ) -> Result<(), NodeError<Message>> {
-        // Get latest value that is set to be accepted in this node.
         if let Some(proposal_in_buffer) = self.buffer {
-            // The value stored in the node buffer is more up-to-date than the one
-            // received in the message. **Don't** update the buffer, and reply with
-            // the up-to-date proposal stored.
+            debug!("received accept request");
             if proposal_in_buffer > received_proposal.proposal_id {
                 Ok(())
             // The value received is more up-to-date than the one we have stored in
@@ -88,7 +76,19 @@ impl Node {
                 self.proposer_sender
                     .send(Message::AcceptResponse)
                     .await
-                    .map_err(|e| NodeError::ProposerSenderError { error: e })
+                    .map_err(|e| NodeError::ProposerSenderError { error: e })?;
+
+                self.learner_sender
+                    .send(LearnMessage {
+                        node_id: self.id,
+                        proposal_id: received_proposal.proposal_id,
+                        value: received_proposal.value,
+                    })
+                    .await
+                    .inspect_err(|e| error!("{e}"))
+                    .expect("error sending to learners");
+
+                Ok(())
             }
 
         // This node has not set any value to be accepted, so according to the

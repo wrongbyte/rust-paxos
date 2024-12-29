@@ -1,6 +1,7 @@
 use std::{collections::HashMap, io::Error, sync::Arc};
 
 use tokio::sync::mpsc;
+use tracing::debug;
 
 use super::{id::ProposalId, message::Message, node::NodeError, proposal::Proposal};
 use crate::repository::ValueRepository;
@@ -38,30 +39,32 @@ impl Learner {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn run(&mut self) -> Result<(), Error> {
-        while let Some(msg) = self.receiver.recv().await {
-            let LearnMessage {
-                value,
-                node_id,
-                proposal_id,
-            } = msg;
-            let msg_str = format!(
-                "received accepted value {} from node {} with proposal id {}",
-                value,
-                node_id,
-                proposal_id.into_inner().to_string()
-            );
-
-            println!("{msg_str}");
-            // info!(msg_str);
-
-            //TODO: verify if the majority has accepted, if so, commit to database.
+        loop {
+            while let Some(msg) = self.receiver.recv().await {
+                let LearnMessage {
+                    value,
+                    node_id,
+                    proposal_id,
+                } = msg;
+                let span = tracing::span!(tracing::Level::DEBUG, "learner");
+                let _ = span.enter();
+                
+                debug!(
+                    value,
+                    node_id,
+                    proposal_id = proposal_id.into_inner().to_string(),
+                    "received accepted value",
+                );
+                //TODO: verify if the majority has accepted, if so, commit to database.
+            }
         }
-        todo!();
     }
 
     /// Given we have a value accepted by any majority of nodes, we commit this value to
     /// the database.
+    #[tracing::instrument(skip(self))]
     pub async fn commit_learned_value(
         &mut self,
         received_message: LearnMessage,
@@ -71,11 +74,11 @@ impl Learner {
             node_id,
             proposal_id,
         } = received_message;
-        println!("received accepted value {value} from node {node_id}");
+        debug!("commiting value received from node {node_id}");
 
         self.repository
             .write_latest_value(Proposal {
-                value: value,
+                value,
                 id: proposal_id,
             })
             .await?;

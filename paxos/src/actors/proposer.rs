@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use tokio::sync::{broadcast, mpsc};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::domain::{
@@ -13,7 +14,6 @@ use crate::domain::{
 /// Node that broadcast proposals to all the acceptors. All the information stored in
 /// this struct is ephemeral, being erased once the round completes.
 pub struct Proposer {
-    /// Identifier of the node.
     pub id: u64,
     /// Interface to receive values from the client, that are assigned an unique id  to
     /// be broadcast to all the nodes as a proposal.
@@ -39,8 +39,8 @@ impl Proposer {
         client_receiver: mpsc::Receiver<u64>,
     ) -> Self {
         let id = 1; // TODO: change when there's more than one proposer
-        let proposal_history = HashMap::new();
         let active_nodes = 0;
+        let proposal_history = HashMap::new();
         let prepared_nodes = HashSet::new();
         Self {
             id,
@@ -54,6 +54,7 @@ impl Proposer {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn run(&mut self) -> Result<(), NodeError<Message>> {
         // Listen to both channels simultaneously.
         loop {
@@ -88,6 +89,7 @@ impl Proposer {
         &mut self,
         value: u64,
     ) -> Result<(), NodeError<Message>> {
+        info!("teste");
         let proposal_id = ProposalId::unchecked_from_inner(Uuid::now_v7());
         let new_proposal = Proposal::new(value, proposal_id);
         self.proposal_history.entry(proposal_id).or_insert(value);
@@ -107,23 +109,22 @@ impl Proposer {
             .expect("could not broadcast proposals");
 
         self.active_nodes = active_acceptors as u64;
-        let msg = format!(
-            "proposer {} proposed value {} for {} acceptors",
-            self.id, value, active_acceptors
+
+        debug!(
+            "proposer {} proposed for {} acceptors",
+            self.id, active_acceptors
         );
-        println!("{msg}");
         Ok(())
     }
 
-    ///
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, fields(node_id = self.id, proposal_id = received_proposal.proposal_id.into_inner().to_string()))]
     pub fn handle_prepare_response(
         &mut self,
         received_proposal: PreparePhaseBody,
     ) -> Result<(), NodeError<Message>> {
         let received_proposal_id = received_proposal.proposal_id;
         let node_id = received_proposal.issuer_id;
-        println!(
+        debug!(
             "received prepare response from node {}",
             received_proposal.issuer_id
         );
@@ -179,14 +180,10 @@ impl Proposer {
                     value: *proposal_value,
                 },
             })
-            .inspect_err(|e| println!("error: {e}"))
+            .inspect_err(|e| error!("error: {e}"))
             .expect("could not broadcast accept messages");
 
-        let msg = format!(
-            "proposer {} sent accept request for {} acceptors",
-            self.id, active_acceptors
-        );
-        println!("{msg}");
+        debug!("accept sent for {} acceptors", active_acceptors);
 
         Ok(())
     }

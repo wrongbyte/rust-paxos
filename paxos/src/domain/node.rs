@@ -54,6 +54,7 @@ impl Node {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn run(&mut self) -> Result<(), Error> {
         // It has to be a infinite loop because otherwise, Nodes are dropped after
         // receiving the first message and the channel closes.
