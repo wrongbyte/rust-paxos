@@ -55,23 +55,31 @@ impl Node {
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
-        let received_message = self
-            .proposer_receiver
-            .recv()
-            .await
-            .expect("error receiving message");
+        // It has to be a infinite loop because otherwise, Nodes are dropped after
+        // receiving the first message and the channel closes.
+        loop {
+            let received_message = self
+                .proposer_receiver
+                .recv()
+                .await
+                .expect("error receiving message");
 
-        match received_message {
-            Message::PrepareRequest { body } => self
-                .reply_prepare_request(body)
-                .await
-                .expect("could not reply to prepare request, node {self.id}"),
-            Message::AcceptRequest { body } => self
-                .reply_accept_request(body)
-                .await
-                .expect("could not reply to accept request, node {self.id}"),
-            _ => (),
-        };
+            match received_message {
+                Message::PrepareRequest { body } => self
+                    .reply_prepare_request(body)
+                    .await
+                    .expect("could not reply to prepare request, node {self.id}"),
+                Message::AcceptRequest { body } => self
+                    .reply_accept_request(body)
+                    .await
+                    .expect("could not reply to accept request, node {self.id}"),
+                _ => (),
+            };
+            // TODO: improve.
+            if false {
+                break;
+            }
+        }
         Ok(())
     }
 }

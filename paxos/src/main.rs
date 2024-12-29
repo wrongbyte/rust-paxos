@@ -16,6 +16,18 @@ pub mod actors;
 pub mod domain;
 pub mod repository;
 
+impl Drop for Proposer {
+    fn drop(&mut self) {
+        eprintln!("Proposer dropped");
+    }
+}
+
+impl Drop for Node {
+    fn drop(&mut self) {
+        eprintln!("Acceptor dropped");
+    }
+}
+
 /// General rules:
 /// Only a value that has been proposed may be chosen.
 /// A process never learns that a value has been chosen unless it actually has been.
@@ -52,8 +64,8 @@ async fn main() {
 
         tokio::spawn(async move {
             acceptor.run().await.expect("could not run acceptor {i}");
+            println!("out of the loop");
         });
-        sleep(Duration::from_secs(1)).await;
     }
 
     // for i in numbers {

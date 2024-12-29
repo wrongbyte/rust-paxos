@@ -11,7 +11,7 @@ use crate::domain::{
 };
 
 /// Node that broadcast proposals to all the acceptors. All the information stored in
-/// this struct is ephemeral, being erased once the round finishes.
+/// this struct is ephemeral, being erased once the round completes.
 pub struct Proposer {
     /// Identifier of the node.
     pub id: u64,
