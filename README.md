@@ -38,3 +38,4 @@ TODO
 - [ ] allow more proposers
 - [ ] remove `expect`s and `unwrap`s and improve code in general
 - [ ] use a generic interface to allow nodes to rotate positions, so that for each "round" nodes can be assigned different roles instead of fixed acceptors and proposers. Idk about learners
+- [ ] how to verify consensus?

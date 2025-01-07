@@ -1,11 +1,11 @@
 use std::io::Error;
 
 use tokio::sync::{
-    broadcast,
-    broadcast::error as broadcast_error,
-    mpsc::{
-        error as mpsc_error, {self},
+    broadcast::{
+        self,
+        error::{self as broadcast_error, TryRecvError},
     },
+    mpsc::{self, error as mpsc_error},
 };
 
 use super::{id::ProposalId, message::Message};
@@ -55,24 +55,36 @@ impl Node {
         // It has to be a infinite loop because otherwise, Nodes are dropped after
         // receiving the first message and the channel closes.
         loop {
-            let received_message = self
-                .proposer_receiver
-                .recv()
-                .await
-                .expect("error receiving message");
+            let received_message = match self.proposer_receiver.try_recv() {
+                Ok(received_message) => received_message,
+                Err(e) => {
+                    if e == TryRecvError::Empty {
+                        continue;
+                    } else if e == TryRecvError::Closed {
+                        return Ok(());
+                    } else {
+                        return Err(Error::new(
+                            std::io::ErrorKind::Other,
+                            "error receiving message",
+                        ));
+                    }
+                }
+            };
 
             match received_message {
                 Message::PrepareRequest { body } => self
                     .reply_prepare_request(body)
                     .await
                     .expect("could not reply to prepare request, node {self.id}"),
-                Message::AcceptRequest { body } => self
-                    .reply_accept_request(body)
-                    .await
-                    .expect("could not reply to accept request, node {self.id}"),
+                Message::AcceptRequest { body } => {
+                    self.reply_accept_request(body).await.expect(&format!(
+                        "could not reply to accept request, node {}",
+                        self.id
+                    ))
+                }
                 _ => (),
             };
-            // TODO: improve.
+            // TODO: improve
             if false {
                 break;
             }

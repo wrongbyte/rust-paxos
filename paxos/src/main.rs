@@ -33,7 +33,8 @@ async fn main() {
     let (client_tx, client_rx) = mpsc::channel::<u64>(number_nodes);
 
     let _value_repository = ValueRepositoryImpl; // TODO: use real impl
-    let mut proposer = Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx);
+    let mut proposer =
+        Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx, number_nodes);
 
     tokio::spawn(async move {
         proposer.run().await.expect("could not run proposer");
@@ -57,14 +58,14 @@ async fn main() {
     sleep(Duration::from_secs(10)).await;
 }
 
-impl Drop for Proposer {
-    fn drop(&mut self) {
-        println!("Proposer dropped");
-    }
-}
+// impl Drop for Proposer {
+//     fn drop(&mut self) {
+//         println!("Proposer dropped");
+//     }
+// }
 
-impl Drop for Node {
-    fn drop(&mut self) {
-        println!("Acceptor dropped");
-    }
-}
+// impl Drop for Node {
+//     fn drop(&mut self) {
+//         println!("Acceptor dropped");
+//     }
+// }
