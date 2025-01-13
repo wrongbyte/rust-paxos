@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use actors::proposer::Proposer;
 use domain::{message::Message, node::Node};
-use repository::ValueRepositoryImpl;
 use tokio::{
     sync::{broadcast, mpsc},
     time::sleep,
@@ -25,16 +24,13 @@ async fn main() {
         .without_time()
         .with_target(false)
         .init();
-    // let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    // let fibonacci = vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34];
-    let number_nodes = 10;
+
+    let number_nodes = 3;
     let (broadcast_tx, _) = broadcast::channel::<Message>(1000);
     let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(number_nodes);
     let (client_tx, client_rx) = mpsc::channel::<u64>(number_nodes);
 
-    let _value_repository = ValueRepositoryImpl; // TODO: use real impl
-    let mut proposer =
-        Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx, number_nodes);
+    let mut proposer = Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx, 5);
 
     tokio::spawn(async move {
         proposer.run().await.expect("could not run proposer");
@@ -54,18 +50,21 @@ async fn main() {
             .send(i)
             .await
             .expect("could not send value to proposer");
+        sleep(Duration::from_secs(1)).await;
     }
+
+    // Executes this simulation for 10 seconds.
     sleep(Duration::from_secs(10)).await;
 }
 
-// impl Drop for Proposer {
-//     fn drop(&mut self) {
-//         println!("Proposer dropped");
-//     }
-// }
+impl Drop for Proposer {
+    fn drop(&mut self) {
+        println!("Proposer dropped");
+    }
+}
 
-// impl Drop for Node {
-//     fn drop(&mut self) {
-//         println!("Acceptor dropped");
-//     }
-// }
+impl Drop for Node {
+    fn drop(&mut self) {
+        println!("Acceptor dropped");
+    }
+}

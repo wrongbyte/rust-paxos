@@ -6,7 +6,10 @@ use crate::domain::{
 };
 
 impl Node {
-    #[tracing::instrument(skip_all, fields(node_id = self.id, proposal_id = received_proposal.proposal_id.into_inner().to_string()))]
+    #[tracing::instrument(skip_all, fields(
+        node_id = self.id,
+        proposal_id = received_proposal.proposal_id.into_inner().to_string()
+    ))]
     pub async fn reply_prepare_request(
         &mut self,
         received_proposal: PreparePhaseBody,
@@ -56,7 +59,10 @@ impl Node {
     ///  - reply to the proposer with an ACK message
     ///  - send the accepted value to the learner
     /// If the value is not accepted, simply ignore the message received and do nothing.
-    #[tracing::instrument(skip_all, fields(node_id = self.id, proposal_id = received_proposal.proposal_id.into_inner().to_string()))]
+    #[tracing::instrument(skip_all, fields(
+        node_id = self.id, 
+        proposal_id = received_proposal.proposal_id.into_inner().to_string()
+    ))]
     pub async fn reply_accept_request(
         &mut self,
         received_proposal: AcceptPhaseBody,
@@ -67,12 +73,13 @@ impl Node {
         };
         if let Some(proposal_in_buffer) = self.buffer {
             debug!("received accept request");
+            // Do not accept the value if the one in buffer is more updated.
             if proposal_in_buffer > received_proposal.proposal_id {
                 Ok(())
-            // The value received is more up-to-date than the one we have stored in
-            // the buffer. **Accept** the proposal (answer the proposer and
-            // send the accepted value to learners)
             } else {
+                // The value received is more up-to-date than the one we have stored in
+                // the buffer. **Accept** the proposal (answer the proposer and
+                // send the accepted value to learners)
                 // Clear the buffer after accepting the value.
                 self.buffer = None;
 
@@ -83,6 +90,7 @@ impl Node {
                     .await
                     .map_err(|e| NodeError::ProposerSenderError { error: e })?;
 
+                debug!("node is ready for the next decree");
                 Ok(())
             }
 

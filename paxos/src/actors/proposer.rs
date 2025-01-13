@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Barrier},
-};
+use std::collections::{HashMap, HashSet};
 
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info};
@@ -34,8 +31,6 @@ pub struct Proposer {
     pub prepared_nodes: HashSet<u64>,
     /// Nodes that replied to the accept request.
     pub accepted_value_nodes: HashSet<u64>,
-    // TODO: doc
-    pub barrier: Arc<Barrier>,
 }
 
 impl Proposer {
@@ -43,13 +38,12 @@ impl Proposer {
         acceptor_sender: broadcast::Sender<Message>,
         acceptor_receiver: mpsc::Receiver<Message>,
         client_receiver: mpsc::Receiver<u64>,
-        number_nodes: usize,
+        _number_nodes: usize,
     ) -> Self {
         let id = 1; // TODO: change when there's more than one proposer
         let proposal_history = HashMap::new();
         let prepared_nodes = HashSet::new();
         let accepted_value_nodes = HashSet::new();
-        let barrier = Arc::new(Barrier::new(number_nodes));
 
         Self {
             id,
@@ -60,7 +54,6 @@ impl Proposer {
             proposal_history,
             accepted_value_nodes,
             prepared_nodes,
-            barrier,
         }
     }
 
@@ -68,10 +61,6 @@ impl Proposer {
     pub async fn run(&mut self) -> Result<(), NodeError<Message>> {
         // Listen to both channels simultaneously.
         loop {
-            if self.acceptor_sender.receiver_count() == 0 {
-                println!("acceptor receiver closed");
-                return Ok(());
-            }
             tokio::select! {
                 Some(client_value) = self.client_receiver.recv() => {
                     self.send_prepare_request(client_value)?;
@@ -82,20 +71,15 @@ impl Proposer {
                             self.handle_prepare_response(body)?;
                         }
                         Message::AcceptResponse { body } => {
-                            let should_terminate = self.handle_accept_response(body);
-                            // If the quorum is reached, we can terminate the protocol. However, we can´t simply break the loop here because the function will return and therefore channels will be dropped, and therefore nodes won't be able to communicate.
-                            if should_terminate {
-                                // TODO: 
-                                self.barrier.wait();
-                                break;
-                            }
+                            self.handle_accept_response(body);
+                            // If the quorum is reached, we have achieved consensus on a value.
+                            // However, we can´t simply break the loop here because the function will return and then channels will be dropped.
                         },
                         _ => (),
                     }
                 },
             }
         }
-        Ok(())
     }
 
     /// The beginning of the protocol. The proposer broadcasts a proposal to all the
@@ -185,7 +169,6 @@ impl Proposer {
             },
         )?;
 
-        // self.acceptor_sender =
         let active_acceptors = self
             .acceptor_sender
             .send(Message::AcceptRequest {
@@ -204,10 +187,7 @@ impl Proposer {
     }
 
     #[tracing::instrument(skip_all)]
-    pub fn handle_accept_response(
-        &mut self,
-        received_message: AcceptPhaseBody,
-    ) -> bool {
+    pub fn handle_accept_response(&mut self, received_message: AcceptPhaseBody) {
         let AcceptPhaseBody {
             issuer_id,
             proposal_id,
@@ -225,14 +205,13 @@ impl Proposer {
         if self.accepted_value_nodes.iter().count()
             > self.acceptor_sender.receiver_count() / 2
         {
-            // End of protocol
+            // At this point, we reached consensus. However, there will still be some
+            // remaining accept responses to be received by the proposer.
             info!(
                 "quorum reached by {}, value {} accepted",
                 self.accepted_value_nodes.iter().count(),
                 value
             );
-            return true;
         }
-        false
     }
 }
