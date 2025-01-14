@@ -60,7 +60,7 @@ impl Node {
     ///  - send the accepted value to the learner
     /// If the value is not accepted, simply ignore the message received and do nothing.
     #[tracing::instrument(skip_all, fields(
-        node_id = self.id, 
+        node_id = self.id,
         proposal_id = received_proposal.proposal_id.into_inner().to_string()
     ))]
     pub async fn reply_accept_request(
