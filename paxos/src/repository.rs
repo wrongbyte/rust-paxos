@@ -28,7 +28,6 @@ impl ValueRepository for ValueRepositoryImpl {
         &self,
         _value: Proposal,
     ) -> Result<(), NodeError<Message>> {
-        // TODO: real implementation
-        Ok(())
+        todo!()
     }
 }

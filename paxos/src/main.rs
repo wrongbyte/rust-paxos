@@ -26,6 +26,8 @@ async fn main() {
         .init();
 
     let number_nodes = 3;
+    // FIXME: this number should (probably?) be the same as the number of nodes.
+    // Decrease this and handle `Lagged` error.
     let (broadcast_tx, _) = broadcast::channel::<Message>(1000);
     let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(number_nodes);
     let (client_tx, client_rx) = mpsc::channel::<u64>(number_nodes);
@@ -45,7 +47,7 @@ async fn main() {
         });
     }
 
-    for i in 0..5 {
+    for i in 0..10 {
         client_tx
             .send(i)
             .await

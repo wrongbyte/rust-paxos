@@ -5,6 +5,5 @@ use super::id::ProposalId;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Copy)]
 pub struct Proposal {
     pub id: ProposalId,
-    // TODO: this should be a more general type, maybe?
     pub value: u64,
 }
