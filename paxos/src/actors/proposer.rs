@@ -5,7 +5,7 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::domain::{
-    id::ProposalId,
+    id::{BrandedUuid, ProposalId},
     message::{AcceptPhaseBody, Message, PreparePhaseBody},
     node::NodeError,
     proposal::Proposal,
@@ -91,10 +91,10 @@ impl Proposer {
         &mut self,
         value: u64,
     ) -> Result<(), NodeError<Message>> {
-        let proposal_id = ProposalId::unchecked_from_inner(Uuid::now_v7());
+        let proposal_id = ProposalId(Uuid::now_v7());
         let new_proposal = Proposal::new(value, proposal_id);
         self.proposal_history.entry(proposal_id).or_insert(value);
-        dbg!(&self.proposal_history);
+        debug!("current proposal history {:?}", &self.proposal_history);
 
         self.latest_proposal = Some(new_proposal);
 
@@ -113,7 +113,7 @@ impl Proposer {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all, fields(node_id = self.id, proposal_id = received_proposal.proposal_id.into_inner().to_string()))]
+    #[tracing::instrument(skip_all, fields(node_id = self.id, proposal_id = received_proposal.proposal_id.formatted()))]
     pub fn handle_prepare_response(
         &mut self,
         received_proposal: PreparePhaseBody,
@@ -135,7 +135,7 @@ impl Proposer {
                     .ok_or(NodeError::InvalidStateError {
                     error: format!(
                         "could not find proposal {} in history",
-                        received_proposal_id.into_inner().to_string()
+                        received_proposal_id.to_string()
                     ),
                 })?;
                 self.latest_proposal = Some(Proposal {
@@ -164,7 +164,7 @@ impl Proposer {
             NodeError::InvalidStateError {
                 error: format!(
                     "could not find proposal {} in history",
-                    latest_proposal_id.into_inner().to_string()
+                    latest_proposal_id.to_string()
                 ),
             },
         )?;
@@ -197,7 +197,7 @@ impl Proposer {
         debug!(
             value,
             issuer_id,
-            proposal_id = proposal_id.into_inner().to_string(),
+            proposal_id = proposal_id.formatted(),
             "received accepted value",
         );
         self.accepted_value_nodes.insert(issuer_id);

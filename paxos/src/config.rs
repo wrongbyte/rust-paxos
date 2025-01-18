@@ -1,6 +1,5 @@
 use clap::Parser;
 
-/// Simple program to greaet a person
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {

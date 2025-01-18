@@ -1,6 +1,7 @@
 use tracing::debug;
 
 use crate::domain::{
+    id::BrandedUuid,
     message::{AcceptPhaseBody, Message, PreparePhaseBody},
     node::{Node, NodeError},
 };
@@ -8,7 +9,7 @@ use crate::domain::{
 impl Node {
     #[tracing::instrument(skip_all, fields(
         node_id = self.id,
-        proposal_id = received_proposal.proposal_id.into_inner().to_string()
+        proposal_id = received_proposal.proposal_id.formatted()
     ))]
     pub async fn reply_prepare_request(
         &mut self,
@@ -61,7 +62,7 @@ impl Node {
     /// If the value is not accepted, simply ignore the message received and do nothing.
     #[tracing::instrument(skip_all, fields(
         node_id = self.id,
-        proposal_id = received_proposal.proposal_id.into_inner().to_string()
+        proposal_id = received_proposal.proposal_id.formatted()
     ))]
     pub async fn reply_accept_request(
         &mut self,
