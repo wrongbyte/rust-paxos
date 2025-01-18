@@ -26,7 +26,6 @@ sequenceDiagram
 TODO
 
 - [ ] auto format on pre-commit
-- [ ] pass parameters using CLI
 - [ ] set up sqlite database
 - [ ] handle `Lagged` error in broadcast. Congestion window?
 - [ ] store node ids (in case some node dies, etc)

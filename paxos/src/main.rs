@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use actors::proposer::Proposer;
+use clap::Parser;
+use config::Args;
 use domain::{message::Message, node::Node};
 use tokio::{
     sync::{broadcast, mpsc},
@@ -9,14 +11,16 @@ use tokio::{
 use tracing_subscriber::EnvFilter;
 
 pub mod actors;
+mod config;
 pub mod domain;
 pub mod repository;
-
 /// General rules:
 /// Only a value that has been proposed may be chosen.
 /// A process never learns that a value has been chosen unless it actually has been.
 #[tokio::main]
 async fn main() {
+    let Args { nodes, rounds } = Args::parse();
+
     let filter_layer =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"));
     tracing_subscriber::fmt()
@@ -25,12 +29,11 @@ async fn main() {
         .with_target(false)
         .init();
 
-    let number_nodes = 3;
     // FIXME: this number should (probably?) be the same as the number of nodes.
     // Decrease this and handle `Lagged` error.
     let (broadcast_tx, _) = broadcast::channel::<Message>(1000);
-    let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(number_nodes);
-    let (client_tx, client_rx) = mpsc::channel::<u64>(number_nodes);
+    let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(nodes);
+    let (client_tx, client_rx) = mpsc::channel::<u64>(nodes);
 
     let mut proposer = Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx, 5);
 
@@ -38,7 +41,7 @@ async fn main() {
         proposer.run().await.expect("could not run proposer");
     });
 
-    for i in 0..number_nodes {
+    for i in 0..nodes {
         let node_subscriber = broadcast_tx.subscribe();
         let mut acceptor = Node::new(i as u64, proposer_tx.clone(), node_subscriber);
 
@@ -47,9 +50,9 @@ async fn main() {
         });
     }
 
-    for i in 0..10 {
+    for i in 0..rounds {
         client_tx
-            .send(i)
+            .send(i as u64)
             .await
             .expect("could not send value to proposer");
         sleep(Duration::from_secs(1)).await;
