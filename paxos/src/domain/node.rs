@@ -3,10 +3,11 @@ use std::io::Error;
 use tokio::sync::{
     broadcast::{
         self,
-        error::{self as broadcast_error, TryRecvError},
+        error::{self as broadcast_error},
     },
     mpsc::{self, error as mpsc_error},
 };
+use tracing::error;
 
 use super::{id::ProposalId, message::Message};
 
@@ -54,20 +55,16 @@ impl Node {
     pub async fn run(&mut self) -> Result<(), Error> {
         // It has to be a infinite loop because otherwise, Nodes are dropped after
         // receiving the first message and the channel closes.
+
         loop {
-            let received_message = match self.proposer_receiver.try_recv() {
+            let received_message = match self.proposer_receiver.recv().await {
                 Ok(received_message) => received_message,
                 Err(e) => {
-                    if e == TryRecvError::Empty {
-                        continue;
-                    } else if e == TryRecvError::Closed {
-                        return Ok(());
-                    } else {
-                        return Err(Error::new(
-                            std::io::ErrorKind::Other,
-                            "error receiving message",
-                        ));
-                    }
+                    error!(?e);
+                    return Err(Error::new(
+                        std::io::ErrorKind::Other,
+                        "error receiving message",
+                    ));
                 }
             };
 
@@ -84,11 +81,6 @@ impl Node {
                 }
                 _ => (),
             };
-            // TODO: improve
-            if false {
-                break;
-            }
         }
-        Ok(())
     }
 }

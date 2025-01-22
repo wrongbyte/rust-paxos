@@ -113,7 +113,10 @@ impl Proposer {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all, fields(node_id = self.id, proposal_id = received_proposal.proposal_id.formatted()))]
+    #[tracing::instrument(skip_all, fields(
+        node_id = self.id,
+        proposal_id = received_proposal.proposal_id.formatted()
+    ))]
     pub fn handle_prepare_response(
         &mut self,
         received_proposal: PreparePhaseBody,
