@@ -14,3 +14,4 @@ clap = { version = "4.5.26", features = ["derive"] }
 async-trait = "0.1.83"
 rusqlite = "0.32.1"
 tracing-appender = "0.2.3"
+anyhow = "1.0.95"

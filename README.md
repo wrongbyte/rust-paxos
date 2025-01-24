@@ -31,6 +31,7 @@ TODO
 - [ ] set up sqlite database
 - [ ] handle `Lagged` error in broadcast. Congestion window?
 - [ ] store node ids (in case some node dies, etc)
+- [ ] decouple code
 - [ ] allow more learners
 - [ ] allow more proposers
 - [ ] remove `expect`s and `unwrap`s and improve code in general

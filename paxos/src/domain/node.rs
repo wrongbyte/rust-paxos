@@ -1,25 +1,12 @@
 use std::io::Error;
 
 use tokio::sync::{
-    broadcast::{
-        self,
-        error::{self as broadcast_error},
-    },
-    mpsc::{self, error as mpsc_error},
+    broadcast::{self},
+    mpsc::{self},
 };
 use tracing::error;
 
 use super::{id::ProposalId, message::Message};
-
-#[derive(Debug)]
-pub enum NodeError<T> {
-    RepositoryError { error: rusqlite::Error },
-    InvalidStateError { error: String }, // TODO: improve
-    CommunicationError { error: String },
-    ProposerSenderError { error: mpsc_error::SendError<T> },
-    ProposerReceiverError { error: broadcast_error::RecvError },
-    LearnerSenderError { error: mpsc_error::SendError<T> },
-}
 
 pub struct Node {
     /// Identifier of the node.

@@ -14,6 +14,7 @@ pub mod actors;
 mod config;
 pub mod domain;
 pub mod repository;
+
 /// General rules:
 /// Only a value that has been proposed may be chosen.
 /// A process never learns that a value has been chosen unless it actually has been.
@@ -35,7 +36,7 @@ async fn main() {
     let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(nodes);
     let (client_tx, client_rx) = mpsc::channel::<u64>(nodes);
 
-    let mut proposer = Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx, 5);
+    let mut proposer = Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx);
 
     tokio::spawn(async move {
         proposer.run().await.expect("could not run proposer");
@@ -55,11 +56,8 @@ async fn main() {
             .send(i as u64)
             .await
             .expect("could not send value to proposer");
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_millis(300)).await;
     }
-
-    // Executes this simulation for 10 seconds.
-    sleep(Duration::from_secs(10)).await;
 }
 
 impl Drop for Proposer {

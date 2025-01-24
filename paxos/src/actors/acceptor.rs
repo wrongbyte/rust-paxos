@@ -1,9 +1,10 @@
+use anyhow::Result;
 use tracing::debug;
 
 use crate::domain::{
     id::BrandedUuid,
     message::{AcceptPhaseBody, Message, PreparePhaseBody},
-    node::{Node, NodeError},
+    node::Node,
 };
 
 impl Node {
@@ -14,7 +15,7 @@ impl Node {
     pub async fn reply_prepare_request(
         &mut self,
         received_proposal: PreparePhaseBody,
-    ) -> Result<(), NodeError<Message>> {
+    ) -> Result<()> {
         debug!("received proposal");
 
         // Get latest value that is set to be accepted in this node.
@@ -37,7 +38,7 @@ impl Node {
                     },
                 })
                 .await
-                .map_err(|e| NodeError::ProposerSenderError { error: e })
+                .map_err(anyhow::Error::from)
 
         // This node has not set any value to be accepted, so according to the
         // algorithm, we set the first value received to be accepted.
@@ -52,7 +53,7 @@ impl Node {
                     },
                 })
                 .await
-                .map_err(|e| NodeError::ProposerSenderError { error: e })
+                .map_err(anyhow::Error::from)
         }
     }
 
@@ -67,7 +68,7 @@ impl Node {
     pub async fn reply_accept_request(
         &mut self,
         received_proposal: AcceptPhaseBody,
-    ) -> Result<(), NodeError<Message>> {
+    ) -> Result<()> {
         let accept_response = AcceptPhaseBody {
             issuer_id: self.id,
             ..received_proposal
@@ -89,7 +90,7 @@ impl Node {
                         body: accept_response,
                     })
                     .await
-                    .map_err(|e| NodeError::ProposerSenderError { error: e })?;
+                    .map_err(anyhow::Error::from)?;
 
                 debug!("node is ready for the next decree");
                 Ok(())
@@ -104,7 +105,7 @@ impl Node {
                     body: accept_response,
                 })
                 .await
-                .map_err(|e| NodeError::ProposerSenderError { error: e })
+                .map_err(anyhow::Error::from)
         }
     }
 }

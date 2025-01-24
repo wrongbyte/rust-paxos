@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use anyhow::Result;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -7,7 +8,6 @@ use uuid::Uuid;
 use crate::domain::{
     id::{BrandedUuid, ProposalId},
     message::{AcceptPhaseBody, Message, PreparePhaseBody},
-    node::NodeError,
     proposal::Proposal,
 };
 
@@ -38,7 +38,6 @@ impl Proposer {
         acceptor_sender: broadcast::Sender<Message>,
         acceptor_receiver: mpsc::Receiver<Message>,
         client_receiver: mpsc::Receiver<u64>,
-        _number_nodes: usize,
     ) -> Self {
         let id = 1; // TODO: change when there's more than one proposer
         let proposal_history = HashMap::new();
@@ -58,7 +57,7 @@ impl Proposer {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn run(&mut self) -> Result<(), NodeError<Message>> {
+    pub async fn run(&mut self) -> Result<()> {
         // Listen to both channels simultaneously.
         loop {
             tokio::select! {
@@ -87,10 +86,7 @@ impl Proposer {
     /// In this step, we also store how many nodes are active. This information is then
     /// later used for computations that rely on quorum.
     #[tracing::instrument(skip(self))]
-    pub fn send_prepare_request(
-        &mut self,
-        value: u64,
-    ) -> Result<(), NodeError<Message>> {
+    pub fn send_prepare_request(&mut self, value: u64) -> Result<()> {
         let proposal_id = ProposalId(Uuid::now_v7());
         let new_proposal = Proposal::new(value, proposal_id);
         self.proposal_history.entry(proposal_id).or_insert(value);
@@ -120,7 +116,7 @@ impl Proposer {
     pub fn handle_prepare_response(
         &mut self,
         received_proposal: PreparePhaseBody,
-    ) -> Result<(), NodeError<Message>> {
+    ) -> Result<()> {
         let received_proposal_id = received_proposal.proposal_id;
         let node_id = received_proposal.issuer_id;
         debug!(
@@ -135,12 +131,10 @@ impl Proposer {
                 let proposal_value = self
                     .proposal_history
                     .get(&received_proposal_id)
-                    .ok_or(NodeError::InvalidStateError {
-                    error: format!(
-                        "could not find proposal {} in history",
-                        received_proposal_id.to_string()
-                    ),
-                })?;
+                    .ok_or(anyhow::anyhow!(
+                    "could not find proposal {} in history",
+                    received_proposal_id.to_string()
+                ))?;
                 self.latest_proposal = Some(Proposal {
                     id: received_proposal_id,
                     value: *proposal_value,
@@ -161,16 +155,15 @@ impl Proposer {
 
     /// The
     #[tracing::instrument(skip(self))]
-    pub fn send_accept_request(&mut self) -> Result<(), NodeError<Message>> {
+    pub fn send_accept_request(&mut self) -> Result<()> {
         let latest_proposal_id = self.latest_proposal.unwrap().id;
-        let proposal_value = self.proposal_history.get(&latest_proposal_id).ok_or(
-            NodeError::InvalidStateError {
-                error: format!(
+        let proposal_value =
+            self.proposal_history
+                .get(&latest_proposal_id)
+                .ok_or(anyhow::anyhow!(
                     "could not find proposal {} in history",
                     latest_proposal_id.to_string()
-                ),
-            },
-        )?;
+                ))?;
 
         let active_acceptors = self
             .acceptor_sender
