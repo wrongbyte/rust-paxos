@@ -13,3 +13,7 @@
 **/*.rs.bk
 
 **/log.txt
+
+**/flamegraph.svg
+**/perf.data
+**/perf.data.old
