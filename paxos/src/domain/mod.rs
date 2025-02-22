@@ -1,6 +1,7 @@
 pub mod message;
 pub mod node;
 pub mod proposal;
+pub mod proposer_node;
 
 pub mod id {
     use std::ops::Deref;

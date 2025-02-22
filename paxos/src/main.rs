@@ -1,19 +1,20 @@
 use std::time::Duration;
 
-use actors::proposer::Proposer;
 use clap::Parser;
 use config::Args;
-use domain::{message::Message, node::Node};
+use domain::{message::Message, node::Node, proposer_node::ProposerNode};
 use tokio::{
     sync::{broadcast, mpsc},
     time::sleep,
 };
 use tracing_subscriber::EnvFilter;
 
-pub mod actors;
+mod actors;
 mod config;
-pub mod domain;
-pub mod repository;
+mod domain;
+mod handlers;
+mod network;
+mod repository;
 
 /// General rules:
 /// Only a value that has been proposed may be chosen.
@@ -36,7 +37,7 @@ async fn main() {
     let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(nodes);
     let (client_tx, client_rx) = mpsc::channel::<u64>(nodes);
 
-    let mut proposer = Proposer::new(broadcast_tx.clone(), proposer_rx, client_rx);
+    let mut proposer = ProposerNode::new(broadcast_tx.clone(), proposer_rx, client_rx);
 
     tokio::spawn(async move {
         proposer.run().await.expect("could not run proposer");
@@ -60,7 +61,7 @@ async fn main() {
     }
 }
 
-impl Drop for Proposer {
+impl Drop for ProposerNode {
     fn drop(&mut self) {
         println!("Proposer dropped");
     }
