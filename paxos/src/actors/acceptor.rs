@@ -27,17 +27,14 @@ impl Acceptor for AcceptorNode {
     ))]
     async fn run(&mut self) -> Result<()> {
         loop {
-            let received_message = self.network_interface.receive().await?;
-            match received_message {
+            match self.network_interface.receive().await? {
                 Some(Message::PrepareRequest { metadata }) => {
                     self.reply_prepare_request(metadata).await?;
                 }
                 Some(Message::AcceptRequest { metadata, .. }) => {
                     self.reply_accept_request(metadata).await?;
                 }
-                _ => {
-                    debug!("no message received");
-                }
+                _ => (),
             }
         }
     }

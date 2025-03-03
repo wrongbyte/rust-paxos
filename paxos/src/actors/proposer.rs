@@ -30,6 +30,7 @@ impl Proposer for ProposerNode {
         loop {
             match self.network_interface.receive().await? {
                 Some(Message::ClientRequest { value }) => {
+                    debug!("received client request");
                     self.send_prepare_request(value).await?;
                 }
                 Some(Message::PrepareResponse { metadata }) => {
@@ -38,9 +39,6 @@ impl Proposer for ProposerNode {
                 }
                 Some(Message::AcceptResponse { metadata }) => {
                     self.handle_accept_response(metadata).await?;
-                }
-                None => {
-                    debug!("no message received");
                 }
                 _ => (),
             }
@@ -67,14 +65,6 @@ impl Proposer for ProposerNode {
     #[tracing::instrument(skip(self))]
     async fn send_accept_request(&mut self) -> Result<()> {
         let latest_proposal_id = self.latest_proposal.unwrap().id;
-        // let proposal_value =
-        //     self.proposal_history
-        //         .get(&latest_proposal_id)
-        //         .ok_or(anyhow::anyhow!(
-        //             "could not find proposal {} in history",
-        //             latest_proposal_id.to_string()
-        //         ))?;
-
         let active_acceptors_count = self
             .network_interface
             .broadcast(Message::new_accept_request(self.id, latest_proposal_id))
@@ -117,7 +107,7 @@ impl Proposer for ProposerNode {
 
         self.prepared_nodes.insert(issuer_id);
 
-        if self.prepared_nodes.iter().count()
+        if self.prepared_nodes.len()
             > self.network_interface.active_listeners().await? / 2
         {
             self.send_accept_request().await?;
@@ -150,14 +140,14 @@ impl Proposer for ProposerNode {
         );
         self.accepted_value_nodes.insert(issuer_id);
 
-        if self.accepted_value_nodes.iter().count()
+        if self.accepted_value_nodes.len()
             > self.network_interface.active_listeners().await? / 2
         {
             // At this point, we reached consensus. However, there will still be some
             // remaining accept responses to be received by the proposer.
             info!(
                 "quorum reached by {}, value {} accepted",
-                self.accepted_value_nodes.iter().count(),
+                self.accepted_value_nodes.len(),
                 value
             );
         }

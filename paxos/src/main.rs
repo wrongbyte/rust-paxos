@@ -5,12 +5,13 @@ use clap::Parser;
 use config::Args;
 use domain::{message::Message, node::AcceptorNode, proposer_node::ProposerNode};
 use network::{
-    acceptor::channels::AcceptorChannels, proposer::channels::ProposerChannels, Network,
+    acceptor::channels::AcceptorChannels, proposer::channels::ProposerChannels,
 };
 use tokio::{
     sync::{broadcast, mpsc},
     time::sleep,
 };
+use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
 mod actors;
@@ -28,6 +29,7 @@ async fn main() {
 
     let filter_layer =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"));
+
     tracing_subscriber::fmt()
         .with_env_filter(filter_layer)
         .without_time()
@@ -43,7 +45,11 @@ async fn main() {
         sender: broadcast_tx.clone(),
         receiver: proposer_rx,
     };
+    let mut proposer = ProposerNode::new(Box::new(proposer_channels));
 
+    tokio::spawn(async move {
+        proposer.run().await.expect("could not run `proposer");
+    });
     for i in 0..nodes {
         let acceptor_channels = AcceptorChannels {
             sender: proposer_tx.clone(),
@@ -59,15 +65,10 @@ async fn main() {
 
     for i in 0..rounds {
         let message = Message::ClientRequest { value: i as u64 };
-        proposer_channels.send(message).await.expect("");
-        sleep(Duration::from_millis(300)).await;
+        debug!("sending value {i} to acceptors");
+        proposer_tx.clone().send(message).await.expect("");
+        sleep(Duration::from_millis(100)).await;
     }
-
-    let mut proposer = ProposerNode::new(Box::new(proposer_channels));
-
-    tokio::spawn(async move {
-        proposer.run().await.expect("could not run `proposer");
-    });
 }
 
 impl Drop for ProposerNode {
