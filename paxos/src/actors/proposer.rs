@@ -19,44 +19,32 @@ pub trait Proposer {
         &mut self,
         received_response: Message,
     ) -> Result<()>;
-    async fn handle_accept_response(
-        &mut self,
-        received_response: Message,
-    ) -> Result<()>;
+    async fn handle_accept_response(&mut self, metadata: MessageMetadata)
+        -> Result<()>;
 }
 
 #[async_trait::async_trait]
 impl Proposer for ProposerNode {
     #[tracing::instrument(skip(self))]
     async fn run(&mut self) -> Result<()> {
-        match self.network_interface.receive().await? {
-            Message::ClientRequest { value } => {
-                self.send_prepare_request(value).await?;
-            }
-            Message::PrepareRequest { metadata } => {
-                self.handle_prepare_response(Message::PrepareResponse { metadata })
-                    .await?;
-            }
-            Message::PrepareResponse { metadata } => {
-                self.handle_prepare_response(Message::PrepareResponse { metadata })
-                    .await?;
-            }
-            Message::AcceptRequest { metadata, value } => {
-                self.handle_accept_response(Message::AcceptResponse {
-                    metadata,
-                    value,
-                })
-                .await?;
-            }
-            Message::AcceptResponse { metadata, value } => {
-                self.handle_accept_response(Message::AcceptResponse {
-                    metadata,
-                    value,
-                })
-                .await?;
+        loop {
+            match self.network_interface.receive().await? {
+                Some(Message::ClientRequest { value }) => {
+                    self.send_prepare_request(value).await?;
+                }
+                Some(Message::PrepareResponse { metadata }) => {
+                    self.handle_prepare_response(Message::PrepareResponse { metadata })
+                        .await?;
+                }
+                Some(Message::AcceptResponse { metadata }) => {
+                    self.handle_accept_response(metadata).await?;
+                }
+                None => {
+                    debug!("no message received");
+                }
+                _ => (),
             }
         }
-        Ok(())
     }
 
     #[tracing::instrument(skip(self))]
@@ -79,21 +67,17 @@ impl Proposer for ProposerNode {
     #[tracing::instrument(skip(self))]
     async fn send_accept_request(&mut self) -> Result<()> {
         let latest_proposal_id = self.latest_proposal.unwrap().id;
-        let proposal_value =
-            self.proposal_history
-                .get(&latest_proposal_id)
-                .ok_or(anyhow::anyhow!(
-                    "could not find proposal {} in history",
-                    latest_proposal_id.to_string()
-                ))?;
+        // let proposal_value =
+        //     self.proposal_history
+        //         .get(&latest_proposal_id)
+        //         .ok_or(anyhow::anyhow!(
+        //             "could not find proposal {} in history",
+        //             latest_proposal_id.to_string()
+        //         ))?;
 
         let active_acceptors_count = self
             .network_interface
-            .broadcast(Message::new_accept_request(
-                self.id,
-                latest_proposal_id,
-                *proposal_value,
-            ))
+            .broadcast(Message::new_accept_request(self.id, latest_proposal_id))
             .await?;
         debug!("accept sent for {} acceptors", active_acceptors_count);
 
@@ -146,15 +130,17 @@ impl Proposer for ProposerNode {
     #[tracing::instrument(skip(self))]
     async fn handle_accept_response(
         &mut self,
-        received_response: Message,
+        metadata: MessageMetadata,
     ) -> Result<()> {
-        let Message::AcceptResponse { metadata, value } = received_response else {
-            return Ok(());
-        };
         let MessageMetadata {
             issuer_id,
             proposal_id: received_proposal_id,
         } = metadata;
+
+        let value = self
+            .proposal_history
+            .get(&received_proposal_id)
+            .expect("TODO");
 
         debug!(
             value,

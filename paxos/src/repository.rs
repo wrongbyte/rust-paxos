@@ -9,6 +9,7 @@ impl Proposal {
     }
 }
 
+#[expect(dead_code)]
 #[async_trait::async_trait]
 pub trait ValueRepository {
     async fn get_latest_value(&self) -> Result<Option<Proposal>>;

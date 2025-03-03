@@ -1,8 +1,12 @@
 use std::time::Duration;
 
+use actors::{acceptor::Acceptor, proposer::Proposer};
 use clap::Parser;
 use config::Args;
-use domain::{message::Message, node::Node, proposer_node::ProposerNode};
+use domain::{message::Message, node::AcceptorNode, proposer_node::ProposerNode};
+use network::{
+    acceptor::channels::AcceptorChannels, proposer::channels::ProposerChannels, Network,
+};
 use tokio::{
     sync::{broadcast, mpsc},
     time::sleep,
@@ -12,7 +16,6 @@ use tracing_subscriber::EnvFilter;
 mod actors;
 mod config;
 mod domain;
-mod handlers;
 mod network;
 mod repository;
 
@@ -35,17 +38,19 @@ async fn main() {
     // Decrease this and handle `Lagged` error.
     let (broadcast_tx, _) = broadcast::channel::<Message>(1000);
     let (proposer_tx, proposer_rx) = mpsc::channel::<Message>(nodes);
-    let (client_tx, client_rx) = mpsc::channel::<u64>(nodes);
 
-    let mut proposer = ProposerNode::new(broadcast_tx.clone(), proposer_rx, client_rx);
-
-    tokio::spawn(async move {
-        proposer.run().await.expect("could not run proposer");
-    });
+    let proposer_channels = ProposerChannels {
+        sender: broadcast_tx.clone(),
+        receiver: proposer_rx,
+    };
 
     for i in 0..nodes {
-        let node_subscriber = broadcast_tx.subscribe();
-        let mut acceptor = Node::new(i as u64, proposer_tx.clone(), node_subscriber);
+        let acceptor_channels = AcceptorChannels {
+            sender: proposer_tx.clone(),
+            receiver: broadcast_tx.subscribe(),
+        };
+
+        let mut acceptor = AcceptorNode::new(i as u64, Box::new(acceptor_channels));
 
         tokio::spawn(async move {
             acceptor.run().await.expect("could not run acceptor {i}");
@@ -53,12 +58,16 @@ async fn main() {
     }
 
     for i in 0..rounds {
-        client_tx
-            .send(i as u64)
-            .await
-            .expect("could not send value to proposer");
+        let message = Message::ClientRequest { value: i as u64 };
+        proposer_channels.send(message).await.expect("");
         sleep(Duration::from_millis(300)).await;
     }
+
+    let mut proposer = ProposerNode::new(Box::new(proposer_channels));
+
+    tokio::spawn(async move {
+        proposer.run().await.expect("could not run `proposer");
+    });
 }
 
 impl Drop for ProposerNode {
@@ -67,7 +76,7 @@ impl Drop for ProposerNode {
     }
 }
 
-impl Drop for Node {
+impl Drop for AcceptorNode {
     fn drop(&mut self) {
         println!("Acceptor dropped");
     }
