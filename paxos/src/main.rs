@@ -12,7 +12,6 @@ use tokio::{
     time::sleep,
 };
 use tracing::debug;
-use tracing_subscriber::EnvFilter;
 
 mod actors;
 mod config;
@@ -27,14 +26,7 @@ mod repository;
 async fn main() {
     let Args { nodes, rounds } = Args::parse();
 
-    let filter_layer =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"));
-
-    tracing_subscriber::fmt()
-        .with_env_filter(filter_layer)
-        .without_time()
-        .with_target(false)
-        .init();
+    config::init_logging();
 
     // FIXME: this number should (probably?) be the same as the number of nodes.
     // Decrease this and handle `Lagged` error.
@@ -45,11 +37,14 @@ async fn main() {
         sender: broadcast_tx.clone(),
         receiver: proposer_rx,
     };
+    
     let mut proposer = ProposerNode::new(Box::new(proposer_channels));
 
     tokio::spawn(async move {
         proposer.run().await.expect("could not run `proposer");
     });
+
+    // Create all nodes
     for i in 0..nodes {
         let acceptor_channels = AcceptorChannels {
             sender: proposer_tx.clone(),
