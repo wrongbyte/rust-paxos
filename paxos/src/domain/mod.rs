@@ -21,21 +21,6 @@ pub mod id {
     )]
     pub struct ProposalId(pub Uuid);
 
-    #[derive(
-        PartialEq,
-        PartialOrd,
-        Eq,
-        Ord,
-        Hash,
-        Debug,
-        Clone,
-        Copy,
-        serde::Serialize,
-        serde::Deserialize,
-    )]
-
-    pub struct NodeId(pub Uuid);
-
     pub trait BrandedUuid {
         fn formatted(&self) -> String;
     }
@@ -49,14 +34,6 @@ pub mod id {
     }
 
     impl Deref for ProposalId {
-        type Target = Uuid;
-
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
-
-    impl Deref for NodeId {
         type Target = Uuid;
 
         fn deref(&self) -> &Self::Target {
