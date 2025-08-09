@@ -1,9 +1,8 @@
 use std::time::Duration;
 
-use actors::{acceptor::Acceptor, proposer::Proposer};
 use clap::Parser;
 use config::Args;
-use domain::{message::Message, node::AcceptorNode, proposer_node::ProposerNode};
+use domain::message::Message;
 use network::{
     acceptor::channels::AcceptorChannels, proposer::channels::ProposerChannels,
 };
@@ -13,10 +12,15 @@ use tokio::{
 };
 use tracing::debug;
 
-mod actors;
+use crate::{
+    acceptor::{Acceptor, AcceptorNode},
+    proposer::{Proposer, ProposerNode},
+};
+mod acceptor;
 mod config;
 mod domain;
 mod network;
+mod proposer;
 mod repository;
 
 /// General rules:
@@ -37,7 +41,7 @@ async fn main() {
         sender: broadcast_tx.clone(),
         receiver: proposer_rx,
     };
-    
+
     let mut proposer = ProposerNode::new(Box::new(proposer_channels));
 
     tokio::spawn(async move {
