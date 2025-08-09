@@ -2,10 +2,6 @@ use std::time::Duration;
 
 use clap::Parser;
 use config::Args;
-use domain::message::Message;
-use network::{
-    acceptor::channels::AcceptorChannels, proposer::channels::ProposerChannels,
-};
 use tokio::{
     sync::{broadcast, mpsc},
     time::sleep,
@@ -13,13 +9,13 @@ use tokio::{
 use tracing::debug;
 
 use crate::{
-    acceptor::{Acceptor, AcceptorNode},
-    proposer::{Proposer, ProposerNode},
+    acceptor::{network::AcceptorChannels, Acceptor, AcceptorNode}, message::Message, proposer::{network::ProposerChannels, Proposer, ProposerNode}
 };
 mod acceptor;
 mod config;
-mod domain;
+mod message;
 mod network;
+mod proposal;
 mod proposer;
 mod repository;
 

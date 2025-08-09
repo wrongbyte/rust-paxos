@@ -1,13 +1,8 @@
 use anyhow::Result;
 
-use crate::domain::{id::ProposalId, proposal::Proposal};
-pub struct ValueRepositoryImpl;
+use crate::proposal::Proposal;
 
-impl Proposal {
-    pub fn new(value: u64, id: ProposalId) -> Self {
-        Self { value, id }
-    }
-}
+pub struct ValueRepositoryImpl;
 
 #[expect(dead_code)]
 #[async_trait::async_trait]

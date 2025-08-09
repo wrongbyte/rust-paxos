@@ -1,13 +1,8 @@
 use anyhow::Result;
+pub mod network;
 use tracing::debug;
 
-use crate::{
-    domain::{
-        id::{BrandedUuid, ProposalId},
-        message::{Message, MessageMetadata},
-    },
-    network::Network,
-};
+use crate::{message::{Message, MessageMetadata}, network::Network, proposal::id::{BrandedUuid, ProposalId}};
 pub struct AcceptorNode {
     /// Identifier of the node.
     // TODO: this should probably be an uuid, that will be stored in non-volatile

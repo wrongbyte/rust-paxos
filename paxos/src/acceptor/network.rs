@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tokio::sync::{broadcast, mpsc};
 
-use crate::{domain::message::Message, network::Network};
+use crate::{message::Message, network::Network};
 
 pub struct AcceptorChannels {
     /// Interface to send messages **to** the proposer. This is mpsc (multiple senders

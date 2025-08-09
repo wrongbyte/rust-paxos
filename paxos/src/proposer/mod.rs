@@ -1,16 +1,11 @@
 use std::collections::{HashMap, HashSet};
-
+pub mod network;
 use anyhow::Result;
 use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::{
-    domain::{
-        id::{BrandedUuid, ProposalId},
-        message::{Message, MessageMetadata},
-        proposal::Proposal,
-    },
-    network::Network,
+    message::{Message, MessageMetadata}, network::Network, proposal::{id::{BrandedUuid, ProposalId}, Proposal}
 };
 
 /// Node that broadcast proposals to all the acceptors. All the information stored in

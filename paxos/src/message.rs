@@ -1,4 +1,4 @@
-use super::id::ProposalId;
+use crate::proposal::id::ProposalId;
 
 #[derive(Debug, Clone)]
 pub struct MessageMetadata {

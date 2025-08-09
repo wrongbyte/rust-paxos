@@ -1,8 +1,7 @@
 use anyhow::Result;
 
-use crate::domain::message::Message;
-pub mod acceptor;
-pub mod proposer;
+use crate::message::Message;
+
 
 #[async_trait::async_trait]
 pub trait Network {
