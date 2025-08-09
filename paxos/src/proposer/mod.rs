@@ -1,3 +1,10 @@
+//! Proposer
+//!
+//! Proposers are nodes that initiate the consensus process by proposing values.
+//! They send prepare requests with sequence numbers to acceptors, then send
+//! accept requests if they receive promises from a majority. Proposers compete
+//! with each other to get their values chosen by the distributed system.
+
 use std::collections::{HashMap, HashSet};
 pub mod network;
 use anyhow::Result;
@@ -5,7 +12,12 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::{
-    message::{Message, MessageMetadata}, network::Network, proposal::{id::{BrandedUuid, ProposalId}, Proposal}
+    message::{Message, MessageMetadata},
+    network::Network,
+    proposal::{
+        id::{BrandedUuid, ProposalId},
+        Proposal,
+    },
 };
 
 /// Node that broadcast proposals to all the acceptors. All the information stored in

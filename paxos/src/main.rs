@@ -9,12 +9,15 @@ use tokio::{
 use tracing::debug;
 
 use crate::{
-    acceptor::{network::AcceptorChannels, Acceptor, AcceptorNode}, message::Message, proposer::{network::ProposerChannels, Proposer, ProposerNode}
+    acceptor::{network::AcceptorChannels, Acceptor, AcceptorNode},
+    message::Message,
+    proposer::{network::ProposerChannels, Proposer, ProposerNode},
 };
 mod acceptor;
 mod config;
 mod message;
 mod network;
+mod node;
 mod proposal;
 mod proposer;
 mod repository;

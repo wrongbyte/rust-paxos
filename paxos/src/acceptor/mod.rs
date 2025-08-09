@@ -1,8 +1,19 @@
+//! Acceptor
+//!
+//! Acceptors are nodes that receive and respond to proposals from proposers.
+//! They promise not to accept proposals with lower sequence numbers than ones
+//! they've already seen, and they accept proposals that meet the protocol rules.
+//! A value becomes chosen when a majority of acceptors accept the same proposal.
+
 use anyhow::Result;
 pub mod network;
 use tracing::debug;
 
-use crate::{message::{Message, MessageMetadata}, network::Network, proposal::id::{BrandedUuid, ProposalId}};
+use crate::{
+    message::{Message, MessageMetadata},
+    network::Network,
+    proposal::id::{BrandedUuid, ProposalId},
+};
 pub struct AcceptorNode {
     /// Identifier of the node.
     // TODO: this should probably be an uuid, that will be stored in non-volatile
